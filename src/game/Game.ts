@@ -176,7 +176,9 @@ export class Game {
     this.combat.reset();
     this.stamina.value = 100;
     this.player.position.set(0, 0, 0);
-    this.ai.position.set(0, 0, 4.2);
+    this.rig.resetLook();
+    this.ai.position.set(0, 0, -4.2);
+    this.ring.setOpponentPosition(0, -4.2);
     this.round = 1;
     this.roundTimeLeft = ROUND_DURATION;
     this.betweenRounds = false;
@@ -196,7 +198,7 @@ export class Game {
     }
 
     void this.canvas.requestPointerLock();
-    this.audio.playBell();
+    this.audio.playStartBell();
     this.hud.showMessage(`Round ${this.round}!`);
   }
 
@@ -417,6 +419,15 @@ export class Game {
     document.exitPointerLock();
     this.stateMachine.transition('result');
     this.hud.hide();
+
+    // Sons de torcida conforme resultado (apenas vitória/derrota do jogador).
+    const p = this.combat.player.health;
+    const o = this.combat.opponent.health;
+    if (p > o + 0.5) {
+      this.audio.playCrowdCheer();
+    } else if (o > p + 0.5) {
+      this.audio.playCrowdBoo();
+    }
 
     const elapsed = Math.floor(performance.now() / 1000 - this.matchStartTime);
     const landPct =

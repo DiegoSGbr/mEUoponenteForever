@@ -17,7 +17,7 @@ export class OpponentAI {
   punchCooldown = 0;
   guardActive = false;
   stamina = 100;
-  readonly position = new THREE.Vector3(0, 0, 4.2);
+  readonly position = new THREE.Vector3(0, 0, -4.2);
   activePunch: AIPunch | null = null;
   aggression = 0;
 
@@ -95,7 +95,7 @@ export class OpponentAI {
 
     this.position.addScaledVector(dir, speed * dt);
     this.position.x = THREE.MathUtils.clamp(this.position.x, -2.5, 2.5);
-    this.position.z = THREE.MathUtils.clamp(this.position.z, 2, 5.5);
+    this.position.z = THREE.MathUtils.clamp(this.position.z, -5.5, -2);
   }
 
   private updateGuard(dt: number): void {
@@ -155,7 +155,7 @@ export class OpponentAI {
   }
 
   getPunchOrigin(): THREE.Vector3 {
-    return this.position.clone().add(new THREE.Vector3(0, 1.5, -0.3));
+    return this.position.clone().add(new THREE.Vector3(0, 1.5, 0.3));
   }
 
   getCurrentDamage(): number {

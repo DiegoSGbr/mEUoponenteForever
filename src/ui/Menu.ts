@@ -34,8 +34,8 @@ export class Menu {
     wrap.innerHTML = `
       <div id="menu-main" class="menu-screen interactive">
         <div class="panel">
-          <h1>Boxe FP</h1>
-          <p class="subtitle">mEUoponenteForever</p>
+          <h1>mEU_Oponente_Forever</h1>
+          <p class="subtitle">Aquele cara ali encarando você no Espelho? <br/> É o seu maior adversário!</p>
           <div class="menu-buttons">
             <button class="primary" data-action="play">Jogar</button>
             <button data-action="tutorial">Tutorial</button>

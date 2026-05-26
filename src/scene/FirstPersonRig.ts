@@ -54,6 +54,13 @@ export class FirstPersonRig {
     this.camera.updateProjectionMatrix();
   }
 
+  resetLook(): void {
+    this.yaw = 0;
+    this.pitch = 0;
+    this.root.rotation.y = 0;
+    this.camera.rotation.x = 0;
+  }
+
   applyLookDelta(dx: number, dy: number): void {
     this.yaw -= dx * 0.002;
     this.pitch -= dy * 0.002;

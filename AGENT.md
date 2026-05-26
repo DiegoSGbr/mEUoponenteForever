@@ -1,6 +1,6 @@
-# AGENT.md — Boxe FP no navegador
+# AGENT.md — mEU_Oponente_Forever (Boxe FP no navegador)
 
-Projeto: **mEUoponenteForever**  
+Projeto: **mEUoponenteForever** / **mEU_Oponente_Forever**  
 Pasta: `D:\projetos\mEUoponenteForever`  
 Escopo: médio | Estilo: simulação leve | Controles: teclado + mouse
 
@@ -8,13 +8,15 @@ Escopo: médio | Estilo: simulação leve | Controles: teclado + mouse
 
 ## Instrução para o agente (ler primeiro)
 
-Você é um desenvolvedor sênior de jogos web. **Implemente este jogo na ordem das 10 etapas abaixo.** Não pule etapas. Não adicione multiplayer, backend ou Unity/Unreal.
+Você é um desenvolvedor sênior de jogos web.
 
-Após cada etapa:
+**As 10 etapas do MVP já estão implementadas.** Novo trabalho = correções pós-teste, polish e features extras — **não reimplementar do zero**.
 
-1. Liste o que foi feito.
-2. Diga como testar manualmente.
-3. Atualize o **Checklist de progresso** no final deste arquivo.
+Antes de codar:
+
+1. Leia esta seção **Handoff** e **Convenções técnicas**.
+2. Rode `npm run dev` e reproduza o bug pedido.
+3. Após mudanças: liste o feito, como testar, e atualize **Correções pós-MVP** abaixo.
 
 Se a pasta estiver vazia (sem `package.json`), comece com:
 
@@ -26,6 +28,69 @@ npm install -D @types/three
 
 ---
 
+## Handoff — estado em 2026-05-26
+
+### O que já funciona
+
+- Fluxo completo: menu → luta (3×2 min) → resultado; tutorial guiado; pausa (Esc).
+- Combate: 4 socos, guarda, esquiva, stamina, combos (`jab → jab → cross`), IA com estados.
+- Vitória: KO, TKO (3 knockdowns), decisão por barra de saúde, empate.
+- Áudio procedural via **Web Audio API** (`src/audio/AudioManager.ts`), volume em `localStorage` (`boxe-fp-volume`).
+- Build: `npm run build` OK.
+
+### Correções já aplicadas (pós-teste das 10 etapas)
+
+| Data | Problema | Solução | Arquivos principais |
+|------|----------|---------|---------------------|
+| 2026-05-26 | Oponente spawnava **atrás** do jogador | Câmera FP olha para **-Z**; oponente em `z = -4.2`, `rotation.y = π`, IA limitada em `z ∈ [-5.5, -2]`; `resetLook()` no início da partida | `RingScene.ts`, `OpponentAI.ts`, `FirstPersonRig.ts`, `Game.ts` |
+| 2026-05-26 | SFX de impacto/sino/torcida muito básicos | `playImpact()` estilo soco de boxe; `playStartBell()` no **início** da partida; `playCrowdCheer()` / `playCrowdBoo()` no fim conforme vitória/derrota | `AudioManager.ts`, `Game.ts` |
+
+### Branding (UI)
+
+- Título da página: `mEU_Oponente_Forever` (`index.html`).
+- Menu principal: mesmo título + subtítulo sobre o “adversário no espelho” (`src/ui/Menu.ts`).
+
+### Próximo agente — onde continuar
+
+- O usuário testou as 10 etapas e pode enviar **mais correções** na mesma linha (gameplay, áudio, UI, IA).
+- Não há lista fixa pendente no repositório; pergunte ou siga o pedido explícito do usuário.
+- Empate (`draw`) em `endMatch` **não** dispara torcida (só vitória/derrota clara por saúde final).
+
+---
+
+## Convenções técnicas (importante)
+
+### Eixo e câmera FP (Three.js)
+
+- Olhar padrão da câmera: eixo **-Z** (frente do jogador).
+- **W** diminui `z` (avança para o oponente).
+- Spawn jogador: `(0, 0, 0)`; spawn oponente: `(0, 0, -4.2)`.
+- `FirstPersonRig.resetLook()` zera yaw/pitch ao iniciar/reiniciar partida.
+
+### Áudio — API atual (`AudioManager`)
+
+| Método | Quando usar |
+|--------|-------------|
+| `playImpact()` | Acerto que tira vida (jogador ou oponente), não bloqueio |
+| `playBlock()` | Golpe bloqueado |
+| `playWhoosh()` | Soco desferido / esquiva |
+| `playStartBell()` | **Somente** início de partida (`Game.startMatch`) |
+| `playBell()` | Fim de round / intervalo entre rounds |
+| `playCrowdCheer()` | Vitória do jogador em `endMatch` (`player.health > opponent.health`) |
+| `playCrowdBoo()` | Derrota do jogador em `endMatch` |
+| `playKnockdown()` | Existe; verificar se está ligado nos knockdowns |
+
+Sons são **sintetizados** (sem arquivos `.mp3`/`.ogg`). Para trocar por samples reais, manter a mesma interface pública.
+
+### Pontos de integração em `Game.ts`
+
+- `startMatch()` → `playStartBell()`, posição oponente, `rig.resetLook()`.
+- `resolvePlayerPunch` / `resolveOpponentPunch` → `playImpact()` ou `playBlock()`.
+- `endMatch()` → torcida por comparação de saúde final.
+- `updateRoundTimer()` → `playBell()` no intervalo e novo round.
+
+---
+
 ## Stack obrigatória
 
 - Vite + TypeScript
@@ -33,14 +98,14 @@ npm install -D @types/three
 - Colisão de combate por **hitboxes** (sem ragdoll / sem física pesada)
 - UI em HTML/CSS sobre o canvas
 - MVP visual com primitivas Three.js (sem modelos externos obrigatórios)
-- Áudio: Web Audio API ou Howler.js
+- Áudio: Web Audio API (implementado; Howler.js opcional se migrar)
 - README em português ao final
 
 ---
 
 ## Visão do jogo
 
-Boxe em **primeira pessoa** no ringue. O jogador vê as luvas e o oponente à frente. Partidas em rounds; vitória por KO, TKO ou decisão.
+Boxe em **primeira pessoa** no ringue. O jogador vê as luvas e o oponente **à frente** (-Z). Partidas em rounds; vitória por KO, TKO ou decisão.
 
 ---
 
@@ -48,7 +113,7 @@ Boxe em **primeira pessoa** no ringue. O jogador vê as luvas e o oponente à fr
 
 ### Câmera e movimento
 
-- Mouse: olhar com limites (sem 360° livre)
+- Mouse: olhar com limites (sem 360° livre) — `YAW_LIMIT` / `PITCH_LIMIT` em `FirstPersonRig.ts`
 - WASD: passos curtos, limitados ao ringue
 - Espaço: esquiva lateral (cooldown + custo de stamina)
 
@@ -80,7 +145,7 @@ Dificuldade única **Normal**; cooldowns; reage à distância e agressividade.
 ### Rounds
 
 - 3 rounds × 2 min (tecla `` ` `` acelera timer em debug)
-- Sistema: **barra de saúde + decisão** OU 10-point must — escolha um e documente no README
+- Sistema: **barra de saúde + decisão** (documentado no README)
 - KO: saúde 0 | TKO: 3 knockdowns | empate possível
 
 ### Tutorial
@@ -102,7 +167,7 @@ Passos (só avança ao cumprir a ação):
 
 ### Áudio
 
-- SFX: impacto, bloqueio, whoosh, bell
+- SFX: impacto (boxe), bloqueio, whoosh, sino início (`playStartBell`), sino round (`playBell`), torcida vitória/derrota
 - Volume em `localStorage`
 
 ### HUD
@@ -124,6 +189,7 @@ Passos (só avança ao cumprir a ação):
 | Mover | WASD |
 | Pausa | Esc |
 | Mira | Mouse |
+| Debug timer | `` ` `` |
 
 ---
 
@@ -151,7 +217,7 @@ src/
 
 ---
 
-## Ordem de implementação (estrita)
+## Ordem de implementação (estrita) — concluída
 
 - [x] **1.** Vite+TS+Three, ringue, câmera FP, movimento limitado
 - [x] **2.** Luvas/mãos + animação procedural de socos
@@ -177,6 +243,8 @@ src/
 - [x] IA ataca, defende e cansa
 - [x] SFX impacto/bloqueio/bell; volume salvo
 - [x] README em português
+- [x] Oponente visível à frente no spawn
+- [x] SFX impacto/sino início/torcida pós-partida (procedural)
 
 ---
 
@@ -193,7 +261,15 @@ src/
 ```bash
 npm install
 npm run dev
+npm run build
 ```
+
+### Teste rápido pós-correções
+
+1. **Spawn:** Jogar → sem mover mouse, oponente centralizado à frente.
+2. **Impacto:** Acertar oponente e levar soco — som mais “pesado” que o tom quadrado antigo.
+3. **Sino:** Início da partida = `playStartBell`; fim de round = `playBell` (mais simples).
+4. **Torcida:** Vencer → aplausos; perder → vaias; empate → silêncio de torcida.
 
 ---
 
@@ -211,3 +287,19 @@ npm run dev
 | 8 | ✅ | 2026-05-25 — build OK |
 | 9 | ✅ | 2026-05-25 — build OK |
 | 10 | ✅ | 2026-05-25 — build OK |
+
+### Correções pós-MVP
+
+| Item | Status | Data | Notas |
+|------|--------|------|-------|
+| Oponente à frente no spawn | ✅ | 2026-05-26 | `z = -4.2`, rotação π, `resetLook()` |
+| SFX impacto tipo boxe | ✅ | 2026-05-26 | `playImpact()` |
+| Sino início de partida | ✅ | 2026-05-26 | `playStartBell()` vs `playBell()` nos rounds |
+| Torcida vitória/derrota | ✅ | 2026-05-26 | `playCrowdCheer` / `playCrowdBoo` em `endMatch` |
+| _(próximas correções do usuário)_ | ⬜ | | Adicionar linhas aqui |
+
+---
+
+## Histórico de sessão (para contexto)
+
+**Sessão 2026-05-26:** Usuário validou as 10 etapas; pediu (1) corrigir spawn do oponente, (2) melhorar sons de impacto, sino de abertura e reação da plateia ao fim da luta. Implementado e documentado acima.

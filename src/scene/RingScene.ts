@@ -101,7 +101,8 @@ export class RingScene {
 
   private buildOpponent(): THREE.Group {
     const group = new THREE.Group();
-    group.position.set(0, 0, 4.2);
+    group.position.set(0, 0, -4.2);
+    group.rotation.y = Math.PI;
 
     const skinMat = new THREE.MeshStandardMaterial({ color: 0xc68642, roughness: 0.6 });
     const shortsMat = new THREE.MeshStandardMaterial({ color: 0x2244aa, roughness: 0.7 });
