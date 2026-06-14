@@ -134,7 +134,7 @@ export class Tutorial {
     const texts: Record<TutorialStep, string> = {
       look: '<strong>Passo 1:</strong> Mova o mouse para olhar ao redor.',
       move: '<strong>Passo 2:</strong> Use WASD para se mover no ringue.',
-      punch: '<strong>Passo 3:</strong> Dê um Jab (Q) e um Cross (E).',
+      punch: '<strong>Passo 3:</strong> Dê um Jab (clique esquerdo) e um Cross (clique direito).',
       guard: '<strong>Passo 4:</strong> Segure Shift para guarda alta.',
       dodge: '<strong>Passo 5:</strong> Pressione Espaço para esquivar lateralmente.',
       combo: '<strong>Passo 6:</strong> Acerte o combo Jab → Jab → Cross.',

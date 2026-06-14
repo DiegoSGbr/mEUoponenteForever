@@ -130,10 +130,8 @@ export class Game {
       }
 
       const punchMap: Record<string, PunchType> = {
-        q: PunchType.Jab,
-        e: PunchType.Cross,
-        r: PunchType.Hook,
-        f: PunchType.Uppercut,
+        q: PunchType.Hook,
+        e: PunchType.Uppercut,
       };
       if (punchMap[key]) {
         this.tryPunch(punchMap[key]);
@@ -151,11 +149,29 @@ export class Game {
       this.tutorial.onLookDelta(e.movementX, e.movementY);
     });
 
-    this.canvas.addEventListener('click', () => {
-      if (this.stateMachine.needsPointerLock()) {
-        void this.canvas.requestPointerLock();
-        this.audio.init(this.menu.getVolume());
+    this.canvas.addEventListener('mousedown', (e) => {
+      if (e.button !== 0 && e.button !== 2) return;
+
+      if (!document.pointerLockElement && this.stateMachine.needsPointerLock()) {
+        if (e.button === 0) {
+          void this.canvas.requestPointerLock();
+          this.audio.init(this.menu.getVolume());
+        }
+        return;
       }
+
+      if (!this.stateMachine.isPlaying()) return;
+
+      if (e.button === 0) {
+        this.tryPunch(PunchType.Jab);
+      } else if (e.button === 2) {
+        e.preventDefault();
+        this.tryPunch(PunchType.Cross);
+      }
+    });
+
+    this.canvas.addEventListener('contextmenu', (e) => {
+      if (this.stateMachine.isPlaying()) e.preventDefault();
     });
   }
 
