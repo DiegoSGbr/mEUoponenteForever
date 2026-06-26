@@ -1,0 +1,41 @@
+name: Feature request
+description: Sugerir uma melhoria ou nova funcionalidade
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de abrir, confira o [ROADMAP.md](https://github.com/DiegoSGbr/mEUoponenteForever/blob/main/ROADMAP.md).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Qual problema ou oportunidade isso resolve?
+      placeholder: Ex.: A IA fica muito fácil depois do primeiro round.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solução proposta
+      description: Como você imagina que deveria funcionar?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: Outras abordagens que você pensou.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Escopo
+      options:
+        - label: Estou disposto(a) a implementar isso via PR
+          required: false
+        - label: Li CONTRIBUTING.md e AGENT.md
+          required: false

@@ -1,0 +1,64 @@
+name: Bug report
+description: Algo não funciona como esperado
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por reportar! Quanto mais detalhes, mais fácil reproduzir.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: O que aconteceu?
+      description: Descreva o bug de forma clara.
+      placeholder: Ex.: Ao clicar com o botão direito, o menu de contexto aparece em vez do Cross.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para reproduzir
+      placeholder: |
+        1. Abrir o jogo
+        2. Clicar em Jogar
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamento esperado
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Navegador e versão
+      placeholder: Ex.: Chrome 125, Firefox 126, Edge 125
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Sistema operacional
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Android
+        - iOS
+        - Outro
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Contexto adicional
+      description: Screenshots, gravações ou erros do console (F12).

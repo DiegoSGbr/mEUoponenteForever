@@ -1,8 +1,9 @@
 # AGENT.md — mEU_Oponente_Forever (Boxe FP no navegador)
 
-Projeto: **mEUoponenteForever** / **mEU_Oponente_Forever**  
-Pasta: `D:\projetos\mEUoponenteForever`  
-Escopo: médio | Estilo: simulação leve | Controles: teclado + mouse
+Repositório: [github.com/DiegoSGbr/mEUoponenteForever](https://github.com/DiegoSGbr/mEUoponenteForever)  
+Status: **beta pública** | Escopo: médio | Estilo: simulação leve | Controles: mouse + teclado
+
+Documentação para contribuidores humanos: [CONTRIBUTING.md](CONTRIBUTING.md) · Roadmap: [ROADMAP.md](ROADMAP.md)
 
 ---
 
@@ -28,7 +29,7 @@ npm install -D @types/three
 
 ---
 
-## Handoff — estado em 2026-05-26
+## Handoff — estado em 2026-06-14
 
 ### O que já funciona
 
@@ -36,7 +37,8 @@ npm install -D @types/three
 - Combate: 4 socos, guarda, esquiva, stamina, combos (`jab → jab → cross`), IA com estados.
 - Vitória: KO, TKO (3 knockdowns), decisão por barra de saúde, empate.
 - Áudio procedural via **Web Audio API** (`src/audio/AudioManager.ts`), volume em `localStorage` (`boxe-fp-volume`).
-- Build: `npm run build` OK.
+- Build: `npm run build` OK; CI no GitHub Actions; deploy opcional via GitHub Pages.
+- Controles: Jab (clique esquerdo), Cross (clique direito), Hook (Q), Uppercut (E).
 
 ### Correções já aplicadas (pós-teste das 10 etapas)
 
@@ -44,17 +46,19 @@ npm install -D @types/three
 |------|----------|---------|---------------------|
 | 2026-05-26 | Oponente spawnava **atrás** do jogador | Câmera FP olha para **-Z**; oponente em `z = -4.2`, `rotation.y = π`, IA limitada em `z ∈ [-5.5, -2]`; `resetLook()` no início da partida | `RingScene.ts`, `OpponentAI.ts`, `FirstPersonRig.ts`, `Game.ts` |
 | 2026-05-26 | SFX de impacto/sino/torcida muito básicos | `playImpact()` estilo soco de boxe; `playStartBell()` no **início** da partida; `playCrowdCheer()` / `playCrowdBoo()` no fim conforme vitória/derrota | `AudioManager.ts`, `Game.ts` |
+| 2026-06-14 | Controles só no teclado | Jab/Cross no mouse (esq./dir.); Hook (Q); Uppercut (E); `contextmenu` bloqueado em partida | `Game.ts`, `Tutorial.ts` |
 
 ### Branding (UI)
 
 - Título da página: `mEU_Oponente_Forever` (`index.html`).
 - Menu principal: mesmo título + subtítulo sobre o “adversário no espelho” (`src/ui/Menu.ts`).
 
-### Próximo agente — onde continuar
+### Próximo contribuidor — onde continuar
 
-- O usuário testou as 10 etapas e pode enviar **mais correções** na mesma linha (gameplay, áudio, UI, IA).
-- Não há lista fixa pendente no repositório; pergunte ou siga o pedido explícito do usuário.
+- Repositório **público em beta** — prioridades em [ROADMAP.md](ROADMAP.md).
+- Novo trabalho = correções, polish e features extras — **não reimplementar do zero**.
 - Empate (`draw`) em `endMatch` **não** dispara torcida (só vitória/derrota clara por saúde final).
+- Após mudanças visíveis: atualizar README, CHANGELOG e tabela **Correções pós-MVP** abaixo.
 
 ---
 
@@ -178,18 +182,20 @@ Passos (só avança ao cumprir a ação):
 
 ## Controles
 
-| Ação | Tecla |
-|------|-------|
-| Jab | Q |
-| Cross | E |
-| Hook | R |
-| Uppercut | F |
+| Ação | Controle |
+|------|----------|
+| Jab | Botão esquerdo do mouse |
+| Cross | Botão direito do mouse |
+| Hook | Q |
+| Uppercut | E |
 | Guarda | Shift (segurar) |
 | Esquiva | Espaço |
 | Mover | WASD |
 | Pausa | Esc |
 | Mira | Mouse |
 | Debug timer | `` ` `` |
+
+O primeiro clique esquerdo no canvas captura o mouse (pointer lock); socos com mouse só após o lock.
 
 ---
 
@@ -296,10 +302,14 @@ npm run build
 | SFX impacto tipo boxe | ✅ | 2026-05-26 | `playImpact()` |
 | Sino início de partida | ✅ | 2026-05-26 | `playStartBell()` vs `playBell()` nos rounds |
 | Torcida vitória/derrota | ✅ | 2026-05-26 | `playCrowdCheer` / `playCrowdBoo` em `endMatch` |
-| _(próximas correções do usuário)_ | ⬜ | | Adicionar linhas aqui |
+| Remapeamento socos (mouse + Q/E) | ✅ | 2026-06-14 | `Game.ts`, `Tutorial.ts` |
+| Docs open source (beta pública) | ✅ | 2026-06-14 | README, CONTRIBUTING, ROADMAP, CI, Pages |
+| _(próximas correções)_ | ⬜ | | Adicionar linhas aqui |
 
 ---
 
 ## Histórico de sessão (para contexto)
+
+**Sessão 2026-06-14:** Preparação para beta pública no GitHub — documentação de contribuição, roadmap, licença MIT, CI, deploy GitHub Pages, controles atualizados na documentação.
 
 **Sessão 2026-05-26:** Usuário validou as 10 etapas; pediu (1) corrigir spawn do oponente, (2) melhorar sons de impacto, sino de abertura e reação da plateia ao fim da luta. Implementado e documentado acima.

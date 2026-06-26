@@ -1,8 +1,27 @@
 {
   "name": "meu-oponente-forever",
-  "private": true,
-  "version": "1.0.0",
+  "version": "0.1.0-beta",
+  "description": "Jogo de boxe em primeira pessoa no navegador — Vite, TypeScript e Three.js",
   "type": "module",
+  "license": "MIT",
+  "author": "DiegoSGbr",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DiegoSGbr/mEUoponenteForever.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DiegoSGbr/mEUoponenteForever/issues"
+  },
+  "homepage": "https://DiegoSGbr.github.io/mEUoponenteForever/",
+  "keywords": [
+    "game",
+    "boxing",
+    "first-person",
+    "threejs",
+    "vite",
+    "typescript",
+    "webgl"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

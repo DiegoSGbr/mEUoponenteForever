@@ -61,9 +61,9 @@ export class Menu {
         <div class="panel">
           <h1>Créditos</h1>
           <p class="credits-text">
-            Jogo de boxe em primeira pessoa.<br/>
+            mEU_Oponente_Forever — beta open source.<br/>
             Vite + TypeScript + Three.js.<br/>
-            Desenvolvido conforme AGENT.md.
+            <a href="https://github.com/DiegoSGbr/mEUoponenteForever" target="_blank" rel="noopener">Contribua no GitHub</a>
           </p>
           <div class="menu-buttons">
             <button data-action="back-credits">Voltar</button>

@@ -1,33 +1,47 @@
-# Boxe FP — mEUoponenteForever
+# mEU_Oponente_Forever
 
-Jogo de boxe em **primeira pessoa** no navegador. Você vê suas luvas e enfrenta um oponente controlado por IA no ringue.
+[![Beta](https://img.shields.io/badge/status-beta-orange)](https://github.com/DiegoSGbr/mEUoponenteForever)
+[![CI](https://github.com/DiegoSGbr/mEUoponenteForever/actions/workflows/ci.yml/badge.svg)](https://github.com/DiegoSGbr/mEUoponenteForever/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## Stack
+Jogo de boxe em **primeira pessoa** no navegador. Você vê suas luvas e enfrenta um oponente controlado por IA no ringue — *aquele cara no espelho é o seu maior adversário*.
 
-- Vite + TypeScript
-- Three.js (primitivas 3D, sem modelos externos)
-- Colisão por hitboxes (sem física pesada)
-- UI em HTML/CSS sobre o canvas
-- Áudio via Web Audio API
-- Volume salvo em `localStorage`
+> **Versão beta** — o MVP está jogável; feedback, bugs e ideias são bem-vindos. Veja [como contribuir](CONTRIBUTING.md).
 
-## Como rodar
+## Jogar online
+
+Após ativar o GitHub Pages (veja [Deploy](#deploy)), a demo fica em:
+
+**https://DiegoSGbr.github.io/mEUoponenteForever/**
+
+Requisitos: navegador moderno com suporte a WebGL e pointer lock.
+
+## Como rodar localmente
 
 ```bash
+git clone https://github.com/DiegoSGbr/mEUoponenteForever.git
+cd mEUoponenteForever
 npm install
 npm run dev
 ```
 
 Abra o endereço exibido no terminal (geralmente `http://localhost:5173`).
 
+### Build de produção
+
+```bash
+npm run build
+npm run preview
+```
+
 ## Controles
 
-| Ação | Tecla |
-|------|-------|
-| Jab | Q |
-| Cross | E |
-| Hook | R |
-| Uppercut | F |
+| Ação | Controle |
+|------|----------|
+| Jab | Botão esquerdo do mouse |
+| Cross | Botão direito do mouse |
+| Hook | Q |
+| Uppercut | E |
 | Guarda alta | Shift (segurar) |
 | Esquiva lateral | Espaço |
 | Mover | WASD |
@@ -35,7 +49,19 @@ Abra o endereço exibido no terminal (geralmente `http://localhost:5173`).
 | Mira | Mouse |
 | Acelerar timer (debug) | `` ` `` |
 
-Clique no canvas para capturar o mouse (pointer lock).
+Clique no canvas para capturar o mouse (pointer lock). O primeiro clique esquerdo inicia a captura; depois disso, cliques esquerdo e direito disparam socos.
+
+## O que está na beta
+
+- Menu completo: Jogar, Tutorial, Configurações (volume), Créditos
+- Luta em 3 rounds × 2 minutos com KO, TKO e decisão
+- 4 tipos de soco, guarda, esquiva e sistema de stamina
+- Combo **Jab → Jab → Cross** com bônus de dano
+- IA com estados (aproximar, pressionar, defender, contra-atacar, cansar)
+- Áudio procedural (Web Audio API), sem arquivos externos
+- Tutorial guiado passo a passo
+
+Limitações conhecidas e próximos passos: [ROADMAP.md](ROADMAP.md).
 
 ## Sistema de pontuação
 
@@ -46,39 +72,16 @@ Este MVP usa **barra de saúde + decisão** (não 10-point must):
 - **TKO:** 3 knockdowns (socos pesados sem bloqueio).
 - **Decisão:** após 3 rounds de 2 minutos, vence quem tiver mais saúde (empate se diferença ≤ 5).
 
-## Fluxo do jogo
+## Stack
 
-1. Menu: Jogar, Tutorial, Configurações (volume), Créditos
-2. Luta em 3 rounds × 2 min
-3. Tela de resultado com estatísticas
-4. Esc durante a luta: pausa (retomar / reiniciar / menu)
+- [Vite](https://vitejs.dev/) + TypeScript
+- [Three.js](https://threejs.org/) (primitivas 3D, sem modelos externos)
+- Colisão por hitboxes (sem física pesada)
+- UI em HTML/CSS sobre o canvas
+- Áudio via Web Audio API
+- Volume salvo em `localStorage`
 
-## Tutorial
-
-Passos guiados (só avança ao cumprir):
-
-1. Olhar com o mouse  
-2. Mover com WASD  
-3. Jab (Q) e Cross (E)  
-4. Guarda (Shift)  
-5. Esquiva (Espaço)  
-6. Combo Jab → Jab → Cross  
-
-## Combos
-
-Sequência exemplo: **Jab → Jab → Cross** em até ~2,8 s após acertos. Concede bônus de dano (+25%) e stagger no oponente.
-
-## IA (Normal)
-
-Estados: Approach, Pressure, Defend, Counter, Tired. O oponente aproxima, pressiona, defende, contra-ataca e cansa quando a stamina interna fica baixa.
-
-## Stamina
-
-- 0–100, regenera em repouso  
-- Socos e esquiva consomem stamina  
-- Abaixo de 20%: socos ficam fracos e o HUD pulsa  
-
-## Estrutura
+## Estrutura do código
 
 ```
 src/
@@ -92,9 +95,27 @@ src/
   audio/AudioManager.ts
 ```
 
-## Build
+Documentação técnica detalhada para contribuidores e agentes de IA: [AGENT.md](AGENT.md).
 
-```bash
-npm run build
-npm run preview
-```
+## Contribuir
+
+1. Leia [CONTRIBUTING.md](CONTRIBUTING.md)
+2. Abra uma [issue](https://github.com/DiegoSGbr/mEUoponenteForever/issues) para discutir mudanças maiores
+3. Faça fork → branch → PR
+
+Áreas onde ajuda é especialmente útil: gameplay, IA, áudio, UI, acessibilidade e testes manuais da beta.
+
+## Deploy
+
+O repositório inclui workflow para **GitHub Pages**. Para publicar a demo:
+
+1. No GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions**
+2. Faça push na branch `main` — o workflow `.github/workflows/deploy-pages.yml` publica automaticamente
+
+## Changelog
+
+Veja [CHANGELOG.md](CHANGELOG.md).
+
+## Licença
+
+[MIT](LICENSE) — use, modifique e contribua livremente.
