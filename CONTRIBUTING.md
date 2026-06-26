@@ -32,16 +32,50 @@ Confirme que o build passa antes de abrir o PR:
 npm run build
 ```
 
+## Modelo de branches
+
+| Branch | Papel | Quem usa |
+|--------|-------|----------|
+| **`dev`** | Desenvolvimento e integração | Colaboradores |
+| **`main`** | Produção (demo pública no GitHub Pages) | Mantenedor — merge após revisão |
+
+```
+colaborador:  fork → feat/minha-mudanca (a partir de dev) → PR → dev
+produção:     dev → PR → main (aprovado pelo mantenedor) → deploy automático
+```
+
+- **`main`** reflete o que está **no ar** em https://DiegoSGbr.github.io/mEUoponenteForever/
+- **`dev`** concentra o trabalho em andamento antes de ir para produção
+- Colaboradores **não** abrem PR direto para `main` — sempre para `dev`
+
 ## Fluxo de contribuição
 
 1. **Fork** do repositório
-2. Crie uma **branch** a partir de `main`:
+2. Clone e use **`dev`** como base:
+   ```bash
+   git clone https://github.com/SEU-USUARIO/mEUoponenteForever.git
+   cd mEUoponenteForever
+   git checkout dev
+   git pull origin dev
+   ```
+3. Crie uma **branch de trabalho** a partir de `dev`:
    - `fix/descricao-curta` — correções
    - `feat/descricao-curta` — novas funcionalidades
    - `docs/descricao-curta` — só documentação
-3. Faça commits **pequenos e descritivos** (em português ou inglês, mas consistentes na PR)
-4. Teste manualmente no navegador (menu, tutorial, luta, pausa, resultado)
-5. Abra um **Pull Request** para `main` e preencha o template
+4. Faça commits **pequenos e descritivos** (em português ou inglês, mas consistentes na PR)
+5. Teste manualmente no navegador (menu, tutorial, luta, pausa, resultado)
+6. Abra um **Pull Request para `dev`** e preencha o template
+
+### Publicar em produção (`main`)
+
+Quando um conjunto de mudanças em `dev` estiver pronto para a demo pública:
+
+1. Abra um **Pull Request de `dev` → `main`**
+2. Descreva o que entra nesta release (pode referenciar o CHANGELOG)
+3. O **mantenedor** revisa, aprova e faz merge
+4. O push em `main` dispara o deploy automático no GitHub Pages
+
+> Apenas o mantenedor faz merge em `main`. PRs de colaboradores externos devem sempre apontar para `dev`.
 
 ## Diretrizes de código
 

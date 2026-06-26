@@ -100,17 +100,30 @@ Documentação técnica detalhada para contribuidores e agentes de IA: [AGENT.md
 ## Contribuir
 
 1. Leia [CONTRIBUTING.md](CONTRIBUTING.md)
-2. Abra uma [issue](https://github.com/DiegoSGbr/mEUoponenteForever/issues) para discutir mudanças maiores
-3. Faça fork → branch → PR
+2. Trabalhe a partir da branch **`dev`** (não de `main`)
+3. Abra PR para **`dev`**; produção vai para **`main`** após revisão do mantenedor
+
+```bash
+git checkout dev
+git pull origin dev
+# sua branch de trabalho → PR para dev
+```
 
 Áreas onde ajuda é especialmente útil: gameplay, IA, áudio, UI, acessibilidade e testes manuais da beta.
 
-## Deploy
+## Deploy (produção)
 
-O repositório inclui workflow para **GitHub Pages**. Para publicar a demo:
+A demo pública reflete a branch **`main`**:
 
-1. No GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions**
-2. Faça push na branch `main` — o workflow `.github/workflows/deploy-pages.yml` publica automaticamente
+**https://DiegoSGbr.github.io/mEUoponenteForever/**
+
+Fluxo de publicação:
+
+1. Desenvolvimento e PRs de colaboradores → **`dev`**
+2. Quando estiver pronto para produção → **PR `dev` → `main`**
+3. Mantenedor aprova e faz merge → workflow `.github/workflows/deploy-pages.yml` publica no GitHub Pages
+
+Configuração inicial (uma vez): **Settings → Pages → Build and deployment → Source: GitHub Actions**
 
 ## Changelog
 

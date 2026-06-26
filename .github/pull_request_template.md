@@ -2,6 +2,11 @@
 
 <!-- O que esta PR faz? (1–3 frases) -->
 
+## Destino
+
+- [ ] **Contribuição** — PR para `dev` (colaboradores)
+- [ ] **Release / produção** — PR de `dev` → `main` (mantenedor)
+
 ## Tipo de mudança
 
 - [ ] Correção de bug

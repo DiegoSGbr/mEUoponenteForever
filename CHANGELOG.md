@@ -5,6 +5,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 ## [Unreleased]
 
 ### Adicionado
+- Modelo de branches: `dev` (colaboração) e `main` (produção / GitHub Pages)
 - Documentação para colaboração open source (CONTRIBUTING, ROADMAP, templates GitHub, CI)
 - Workflow de deploy para GitHub Pages
 

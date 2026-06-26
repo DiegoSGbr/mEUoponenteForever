@@ -5,6 +5,8 @@ Status: **beta pública** | Escopo: médio | Estilo: simulação leve | Controle
 
 Documentação para contribuidores humanos: [CONTRIBUTING.md](CONTRIBUTING.md) · Roadmap: [ROADMAP.md](ROADMAP.md)
 
+**Branches:** `dev` (desenvolvimento) · `main` (produção / GitHub Pages)
+
 ---
 
 ## Instrução para o agente (ler primeiro)
@@ -16,8 +18,9 @@ Você é um desenvolvedor sênior de jogos web.
 Antes de codar:
 
 1. Leia esta seção **Handoff** e **Convenções técnicas**.
-2. Rode `npm run dev` e reproduza o bug pedido.
-3. Após mudanças: liste o feito, como testar, e atualize **Correções pós-MVP** abaixo.
+2. Trabalhe na branch **`dev`** (PRs de colaboradores vão para `dev`; `main` = produção).
+3. Rode `npm run dev` e reproduza o bug pedido.
+4. Após mudanças: liste o feito, como testar, e atualize **Correções pós-MVP** abaixo.
 
 Se a pasta estiver vazia (sem `package.json`), comece com:
 
@@ -56,6 +59,7 @@ npm install -D @types/three
 ### Próximo contribuidor — onde continuar
 
 - Repositório **público em beta** — prioridades em [ROADMAP.md](ROADMAP.md).
+- Branch **`dev`** para desenvolvimento; **`main`** só via PR aprovado pelo mantenedor (produção).
 - Novo trabalho = correções, polish e features extras — **não reimplementar do zero**.
 - Empate (`draw`) em `endMatch` **não** dispara torcida (só vitória/derrota clara por saúde final).
 - Após mudanças visíveis: atualizar README, CHANGELOG e tabela **Correções pós-MVP** abaixo.
