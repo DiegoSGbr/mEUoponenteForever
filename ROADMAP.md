@@ -65,4 +65,4 @@ Prioridades para evolução do projeto. Itens sem dono — sinta-se à vontade p
 
 1. Abra uma [feature request](https://github.com/DiegoSGbr/mEUoponenteForever/issues/new/choose)
 2. Explique o benefício para quem joga
-3. Se quiser implementar, mencione na issue antes de abrir a PR
+3. Se quiser implementar, trabalhe a partir de `dev` e abra PR para `dev` (veja [CONTRIBUTING.md](CONTRIBUTING.md))
