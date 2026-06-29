@@ -6,3 +6,9 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Mixamo source exports (use .glb in repo)
+public/models/*.fbx
+public/models/*.fbm
+public/models/Boxing.fbm/
+public/models/anim-footwork.glb

@@ -1,13 +1,24 @@
 import * as THREE from 'three';
+import { OpponentModel, type OpponentLoadConfig } from '../opponent/OpponentModel';
+import type { OpponentFaceSource } from '../opponent/OpponentFaceCustomizer';
+import type { OpponentAI } from '../opponent/OpponentAI';
+import { OPPONENT_SPAWN_Z, RING_HALF } from './ringBounds';
 
-export const RING_HALF = 3;
+export { RING_HALF } from './ringBounds';
 export const RING_FLOOR_Y = 0;
+
+const DEFAULT_OPPONENT_LOAD: OpponentLoadConfig = {
+  face: { kind: 'mixamo-default' },
+};
 
 export class RingScene {
   readonly scene: THREE.Scene;
   readonly opponentGroup: THREE.Group;
   readonly opponentHitbox: THREE.Box3;
-  private readonly opponentBody: THREE.Mesh;
+  private opponentModel: OpponentModel | null = null;
+  private placeholderGroup: THREE.Group | null = null;
+  private placeholderBody: THREE.Mesh | null = null;
+  private modelLoadPromise: Promise<void> | null = null;
 
   constructor() {
     this.scene = new THREE.Scene();
@@ -27,7 +38,10 @@ export class RingScene {
     this.scene.add(fill);
 
     this.buildRing();
-    this.opponentGroup = this.buildOpponent();
+
+    this.opponentGroup = new THREE.Group();
+    this.opponentGroup.position.set(0, 0, OPPONENT_SPAWN_Z);
+    this.opponentGroup.visible = false;
     this.scene.add(this.opponentGroup);
 
     const hitSize = new THREE.Vector3(0.7, 1.6, 0.5);
@@ -35,7 +49,61 @@ export class RingScene {
       new THREE.Vector3(-hitSize.x / 2, 0.9, -hitSize.z / 2),
       new THREE.Vector3(hitSize.x / 2, 2.5, hitSize.z / 2),
     );
-    this.opponentBody = this.opponentGroup.children[1] as THREE.Mesh;
+  }
+
+  get isOpponentReady(): boolean {
+    return this.opponentModel?.isLoaded ?? false;
+  }
+
+  loadOpponentModel(config: OpponentLoadConfig = DEFAULT_OPPONENT_LOAD): Promise<void> {
+    if (!this.modelLoadPromise) {
+      this.modelLoadPromise = this.loadOpponentModelInternal(config);
+    }
+    return this.modelLoadPromise;
+  }
+
+  prepareOpponentDisplay(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void {
+    this.opponentModel?.prepareForDisplay(renderer, camera);
+  }
+
+  async setOpponentFace(source: OpponentFaceSource): Promise<void> {
+    await this.opponentModel?.setFaceSource(source);
+  }
+
+  async refreshOpponentFace(): Promise<void> {
+    await this.opponentModel?.refreshFace();
+  }
+
+  playOpponentVictory(): void {
+    this.opponentModel?.playVictory();
+  }
+
+  playOpponentDefeat(): void {
+    this.opponentModel?.playDefeat();
+  }
+
+  resetOpponentForMatch(): void {
+    this.opponentModel?.resetForMatch();
+  }
+
+  private async loadOpponentModelInternal(config: OpponentLoadConfig): Promise<void> {
+    try {
+      const model = new OpponentModel();
+      await model.load(config);
+
+      this.opponentGroup.add(model.root);
+      this.opponentModel = model;
+      this.updateOpponentHitbox();
+      this.opponentGroup.visible = true;
+      console.info('[RingScene] Oponente Mixamo carregado.');
+    } catch (error) {
+      console.error('[RingScene] Falha ao carregar modelo do oponente; usando placeholder.', error);
+      this.showPlaceholderOpponent();
+    }
+  }
+
+  updateOpponentAnimation(dt: number, ai: OpponentAI, isPlaying: boolean): void {
+    this.opponentModel?.update(dt, ai, isPlaying);
   }
 
   private buildRing(): void {
@@ -99,10 +167,17 @@ export class RingScene {
     }
   }
 
-  private buildOpponent(): THREE.Group {
+  private showPlaceholderOpponent(): void {
+    if (this.placeholderGroup) return;
+
+    this.placeholderGroup = this.buildPlaceholderOpponent();
+    this.opponentGroup.add(this.placeholderGroup);
+    this.placeholderBody = this.placeholderGroup.children[0] as THREE.Mesh;
+    this.opponentGroup.visible = true;
+  }
+
+  private buildPlaceholderOpponent(): THREE.Group {
     const group = new THREE.Group();
-    group.position.set(0, 0, -4.2);
-    group.rotation.y = Math.PI;
 
     const skinMat = new THREE.MeshStandardMaterial({ color: 0xc68642, roughness: 0.6 });
     const shortsMat = new THREE.MeshStandardMaterial({ color: 0x2244aa, roughness: 0.7 });
@@ -120,16 +195,23 @@ export class RingScene {
 
     const leftGlove = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.28), gloveMat);
     leftGlove.position.set(-0.55, 1.55, 0.25);
+    leftGlove.userData.isGlove = true;
     group.add(leftGlove);
 
     const rightGlove = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.28), gloveMat);
     rightGlove.position.set(0.55, 1.55, 0.25);
+    rightGlove.userData.isGlove = true;
     group.add(rightGlove);
 
     return group;
   }
 
   updateOpponentHitbox(): void {
+    if (this.opponentModel?.isLoaded) {
+      this.opponentModel.computeHitbox(this.opponentHitbox);
+      return;
+    }
+
     const worldPos = new THREE.Vector3();
     this.opponentGroup.getWorldPosition(worldPos);
     const size = new THREE.Vector3(0.7, 1.6, 0.5);
@@ -151,8 +233,15 @@ export class RingScene {
   }
 
   setOpponentGuardVisual(guarding: boolean): void {
-    const gloves = this.opponentGroup.children.filter(
-      (c) => c instanceof THREE.Mesh && c !== this.opponentBody,
+    if (this.opponentModel?.isLoaded) {
+      this.opponentModel.setGuardPose(guarding);
+      return;
+    }
+
+    if (!this.placeholderGroup || !this.placeholderBody) return;
+
+    const gloves = this.placeholderGroup.children.filter(
+      (c) => c instanceof THREE.Mesh && c.userData.isGlove,
     ) as THREE.Mesh[];
     for (const g of gloves) {
       g.position.y = guarding ? 1.85 : 1.55;
@@ -161,8 +250,13 @@ export class RingScene {
   }
 
   applyOpponentHitFlash(): void {
-    const body = this.opponentGroup.children[1] as THREE.Mesh;
-    const mat = body.material as THREE.MeshStandardMaterial;
+    if (this.opponentModel?.isLoaded) {
+      this.opponentModel.applyHitFlash();
+      return;
+    }
+
+    if (!this.placeholderBody) return;
+    const mat = this.placeholderBody.material as THREE.MeshStandardMaterial;
     const orig = mat.emissive.getHex();
     mat.emissive.setHex(0x442222);
     setTimeout(() => mat.emissive.setHex(orig), 120);

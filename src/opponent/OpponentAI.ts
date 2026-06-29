@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PunchType, PUNCH_CONFIGS } from '../combat/PunchType';
+import { clampOpponentToRing, OPPONENT_SPAWN_Z } from '../scene/ringBounds';
 
 export type AIState = 'Approach' | 'Pressure' | 'Defend' | 'Counter' | 'Tired';
 
@@ -17,7 +18,7 @@ export class OpponentAI {
   punchCooldown = 0;
   guardActive = false;
   stamina = 100;
-  readonly position = new THREE.Vector3(0, 0, -4.2);
+  readonly position = new THREE.Vector3(0, 0, OPPONENT_SPAWN_Z);
   activePunch: AIPunch | null = null;
   aggression = 0;
 
@@ -94,8 +95,7 @@ export class OpponentAI {
     }
 
     this.position.addScaledVector(dir, speed * dt);
-    this.position.x = THREE.MathUtils.clamp(this.position.x, -2.5, 2.5);
-    this.position.z = THREE.MathUtils.clamp(this.position.z, -5.5, -2);
+    clampOpponentToRing(this.position);
   }
 
   private updateGuard(dt: number): void {

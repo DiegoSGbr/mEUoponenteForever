@@ -4,10 +4,20 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+### Alterado
+- Deslocamento do oponente: `anim-walking.glb` substitui `anim-footwork` (Jogging With Box)
+- Caminhada só nos estados Approach e Counter; em Pressure usa guarda
+
+## [0.1.1-beta] - 2026-06-28
+
 ### Adicionado
-- Modelo de branches: `dev` (colaboração) e `main` (produção / GitHub Pages)
-- Documentação para colaboração open source (CONTRIBUTING, ROADMAP, templates GitHub, CI)
-- Workflow de deploy para GitHub Pages
+- Modelo 3D do oponente via Mixamo (`public/models/Boxing.glb`) com `GLTFLoader` e `AnimationMixer`
+- Módulo [`OpponentModel`](src/opponent/OpponentModel.ts) com fallback para placeholder procedural
+- `MeshoptDecoder` para GLB otimizado; `public/models/README.md` com instruções de conversão
+
+### Alterado
+- [`RingScene`](src/scene/RingScene.ts): carga assíncrona do oponente e animação sincronizada com a IA
+- Créditos in-game citam Adobe Mixamo
 
 ## [0.1.0-beta] - 2026-06-14
 

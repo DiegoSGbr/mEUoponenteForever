@@ -90,9 +90,11 @@ src/
   combat/CombatManager.ts, PunchType.ts, ComboDetector.ts, HitResolver.ts
   player/PlayerController.ts, StaminaSystem.ts
   opponent/OpponentAI.ts
+  opponent/OpponentModel.ts
   scene/RingScene.ts, FirstPersonRig.ts
   ui/Menu.ts, HUD.ts, Tutorial.ts
   audio/AudioManager.ts
+public/models/Boxing.glb
 ```
 
 Documentação técnica detalhada para contribuidores e agentes de IA: [AGENT.md](AGENT.md).

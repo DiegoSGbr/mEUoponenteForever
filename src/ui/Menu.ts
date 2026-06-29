@@ -36,9 +36,10 @@ export class Menu {
         <div class="panel">
           <h1>mEU_Oponente_Forever</h1>
           <p class="subtitle">Aquele cara ali encarando você no Espelho? <br/> É o seu maior adversário!</p>
+          <p id="menu-loading-status" class="loading-status" aria-live="polite"></p>
           <div class="menu-buttons">
-            <button class="primary" data-action="play">Jogar</button>
-            <button data-action="tutorial">Tutorial</button>
+            <button class="primary" data-action="play" disabled>Jogar</button>
+            <button data-action="tutorial" disabled>Tutorial</button>
             <button data-action="settings">Configurações</button>
             <button data-action="credits">Créditos</button>
           </div>
@@ -63,6 +64,7 @@ export class Menu {
           <p class="credits-text">
             mEU_Oponente_Forever — beta open source.<br/>
             Vite + TypeScript + Three.js.<br/>
+            Personagem e animação: Adobe Mixamo.<br/>
             <a href="https://github.com/DiegoSGbr/mEUoponenteForever" target="_blank" rel="noopener">Contribua no GitHub</a>
           </p>
           <div class="menu-buttons">
@@ -179,5 +181,18 @@ export class Menu {
 
   hideResult(): void {
     this.menuWrap()?.querySelector('#menu-result')?.classList.add('hidden');
+  }
+
+  setLoading(loading: boolean): void {
+    const w = this.menuWrap();
+    const play = w?.querySelector('[data-action="play"]') as HTMLButtonElement | null;
+    const tutorial = w?.querySelector('[data-action="tutorial"]') as HTMLButtonElement | null;
+    const status = w?.querySelector('#menu-loading-status');
+
+    if (play) play.disabled = loading;
+    if (tutorial) tutorial.disabled = loading;
+    if (status) {
+      status.textContent = loading ? 'Carregando oponente...' : '';
+    }
   }
 }

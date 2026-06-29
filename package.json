@@ -1,6 +1,6 @@
 {
   "name": "meu-oponente-forever",
-  "version": "0.1.0-beta",
+  "version": "0.1.1-beta",
   "description": "Jogo de boxe em primeira pessoa no navegador — Vite, TypeScript e Three.js",
   "type": "module",
   "license": "MIT",
@@ -25,7 +25,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "convert:anims": "node scripts/convert-opponent-anims.mjs"
   },
   "devDependencies": {
     "@types/three": "^0.176.0",

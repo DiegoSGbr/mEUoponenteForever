@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RingScene } from '../scene/RingScene';
+import { OPPONENT_SPAWN_Z } from '../scene/ringBounds';
 import { FirstPersonRig } from '../scene/FirstPersonRig';
 import { PlayerController } from '../player/PlayerController';
 import { StaminaSystem } from '../player/StaminaSystem';
@@ -91,7 +92,21 @@ export class Game {
     this.onResize();
     window.addEventListener('resize', () => this.onResize());
 
+    this.menu.setLoading(true);
+    void this.bootstrapAssets();
+
     this.animate();
+  }
+
+  private async bootstrapAssets(): Promise<void> {
+    try {
+      await this.ring.loadOpponentModel();
+      this.ring.prepareOpponentDisplay(this.renderer, this.rig.camera);
+    } catch (error) {
+      console.error('[Game] Falha ao preparar oponente:', error);
+    } finally {
+      this.menu.setLoading(false);
+    }
   }
 
   private setupInput(): void {
@@ -189,12 +204,15 @@ export class Game {
   }
 
   private startMatch(tutorialMode: boolean): void {
+    if (!this.ring.isOpponentReady) return;
+
     this.combat.reset();
     this.stamina.value = 100;
     this.player.position.set(0, 0, 0);
     this.rig.resetLook();
-    this.ai.position.set(0, 0, -4.2);
-    this.ring.setOpponentPosition(0, -4.2);
+    this.ai.position.set(0, 0, OPPONENT_SPAWN_Z);
+    this.ring.setOpponentPosition(0, OPPONENT_SPAWN_Z);
+    this.ring.resetOpponentForMatch();
     this.round = 1;
     this.roundTimeLeft = ROUND_DURATION;
     this.betweenRounds = false;
@@ -252,6 +270,8 @@ export class Game {
 
     if (this.stateMachine.isPlaying()) {
       this.updateGameplay(dt);
+    } else if (this.stateMachine.state === 'result') {
+      this.ring.updateOpponentAnimation(dt, this.ai, true);
     }
 
     this.renderer.render(this.ring.scene, this.rig.camera);
@@ -290,6 +310,7 @@ export class Game {
     this.ai.update(dt, this.player.position, playerAggressive, this.stamina.isExhausted());
     this.ring.setOpponentPosition(this.ai.position.x, this.ai.position.z);
     this.ring.setOpponentGuardVisual(this.ai.isGuarding());
+    this.ring.updateOpponentAnimation(dt, this.ai, this.stateMachine.isPlaying());
     this.ring.updateOpponentHitbox();
 
     if (this.ai.isPunchActive()) {
@@ -441,8 +462,10 @@ export class Game {
     const o = this.combat.opponent.health;
     if (p > o + 0.5) {
       this.audio.playCrowdCheer();
+      this.ring.playOpponentDefeat();
     } else if (o > p + 0.5) {
       this.audio.playCrowdBoo();
+      this.ring.playOpponentVictory();
     }
 
     const elapsed = Math.floor(performance.now() / 1000 - this.matchStartTime);

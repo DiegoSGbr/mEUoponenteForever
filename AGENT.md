@@ -42,6 +42,7 @@ npm install -D @types/three
 - Áudio procedural via **Web Audio API** (`src/audio/AudioManager.ts`), volume em `localStorage` (`boxe-fp-volume`).
 - Build: `npm run build` OK; CI no GitHub Actions; deploy opcional via GitHub Pages.
 - Controles: Jab (clique esquerdo), Cross (clique direito), Hook (Q), Uppercut (E).
+- Oponente visual: modelo Mixamo em `public/models/Boxing.glb` via [`OpponentModel.ts`](src/opponent/OpponentModel.ts) (`GLTFLoader` + `MeshoptDecoder`); fallback procedural se o load falhar.
 
 ### Correções já aplicadas (pós-teste das 10 etapas)
 
@@ -217,12 +218,17 @@ src/
   player/PlayerController.ts
   player/StaminaSystem.ts
   opponent/OpponentAI.ts
+  opponent/OpponentModel.ts
+  opponent/OpponentAssets.ts
+  opponent/OpponentFaceCustomizer.ts
   scene/RingScene.ts
   scene/FirstPersonRig.ts
   ui/Menu.ts
   ui/HUD.ts
   ui/Tutorial.ts
   audio/AudioManager.ts
+public/
+  models/Boxing.glb
 ```
 
 ---
@@ -308,6 +314,13 @@ npm run build
 | Torcida vitória/derrota | ✅ | 2026-05-26 | `playCrowdCheer` / `playCrowdBoo` em `endMatch` |
 | Remapeamento socos (mouse + Q/E) | ✅ | 2026-06-14 | `Game.ts`, `Tutorial.ts` |
 | Docs open source (beta pública) | ✅ | 2026-06-14 | README, CONTRIBUTING, ROADMAP, CI, Pages |
+| Modelo Mixamo no oponente (GLB) | ✅ | 2026-06-28 | `OpponentModel.ts`, `RingScene.ts`, `public/models/Boxing.glb` |
+| Oponente de costas / animação vs golpe | ✅ | 2026-06-28 | `rotation.y = 0` (Mixamo +Z); seek no clip por `PunchType` e fase |
+| Oponente atravessando cordas do ringue | ✅ | 2026-06-28 | `ringBounds.ts`, spawn `z=-1.85`, strip root motion Mixamo |
+| Animações separadas por golpe (10 clips GLB) | ✅ | 2026-06-28 | `OpponentAssets.ts`, `anim-*.glb`, mapeamento `PunchType` |
+| Caminhada ao aproximar (`anim-walking`) | ✅ | 2026-06-29 | Substitui Jogging With Box; estados Approach/Counter |
+| Morte ao perder (`anim-death`) + rosto na animação | ✅ | 2026-06-29 | `playDefeat`, `OpponentFaceConfig`, reaplica textura no clip death |
+| Hook troca de rosto por imagem | 🚧 | | `OpponentFaceCustomizer.ts` — stub para próxima fase |
 | _(próximas correções)_ | ⬜ | | Adicionar linhas aqui |
 
 ---
