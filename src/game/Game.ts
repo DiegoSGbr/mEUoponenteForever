@@ -12,6 +12,7 @@ import { HUD } from '../ui/HUD';
 import { Menu, type MenuCallbacks } from '../ui/Menu';
 import { Tutorial } from '../ui/Tutorial';
 import { AudioManager } from '../audio/AudioManager';
+import { loadBoxingGloveTemplate } from '../scene/BoxingGloveAssets';
 
 const ROUND_DURATION = 120;
 const TOTAL_ROUNDS = 3;
@@ -100,10 +101,13 @@ export class Game {
 
   private async bootstrapAssets(): Promise<void> {
     try {
+      const gloveTemplate = await loadBoxingGloveTemplate();
+      this.rig.applyGloveTemplate(gloveTemplate);
+
       await this.ring.loadOpponentModel();
       this.ring.prepareOpponentDisplay(this.renderer, this.rig.camera);
     } catch (error) {
-      console.error('[Game] Falha ao preparar oponente:', error);
+      console.error('[Game] Falha ao preparar assets:', error);
     } finally {
       this.menu.setLoading(false);
     }

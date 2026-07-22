@@ -5,6 +5,8 @@ import { PUNCH_CONFIGS } from '../combat/PunchType';
 import type { OpponentAI } from './OpponentAI';
 import {
   ANIM_FADE_SEC,
+  CRITICAL_ANIMS,
+  DEFERRED_ANIMS,
   LOOPING_ANIMS,
   OPPONENT_ANIMATIONS,
   OPPONENT_BASE_GLB,
@@ -13,6 +15,12 @@ import {
 } from './OpponentAssets';
 import { OpponentFaceCustomizer, type OpponentFaceSource } from './OpponentFaceCustomizer';
 import { OPPONENT_FACE_REAPPLY_ON_ANIM } from './OpponentFaceConfig';
+import {
+  createOpponentGlove,
+  loadOpponentGloveTemplate,
+  measureHandLengthWorld,
+  OPPONENT_HAND_MESH_COLLAPSE,
+} from './OpponentGloves';
 
 const TARGET_HEIGHT = 1.75;
 const FACE_PLAYER_Y = 0;
@@ -29,6 +37,7 @@ export class OpponentModel {
   private mixer: THREE.AnimationMixer | null = null;
   private readonly actions = new Map<OpponentAnimKey, THREE.AnimationAction>();
   private readonly meshes: THREE.Mesh[] = [];
+  private readonly collapsedHandBones: THREE.Object3D[] = [];
   private currentAnim: OpponentAnimKey | null = null;
   private loaded = false;
   private activePunchToken = '';
@@ -77,23 +86,31 @@ export class OpponentModel {
 
     this.fitModelToRing(model);
     this.root.add(model);
+    await this.attachBoxingGloves(model);
 
     this.faceCustomizer.bindFromModel(model);
     await this.faceCustomizer.applySource(config.face ?? { kind: 'mixamo-default' });
     // Rosto fica no mesh base (Boxing.glb); troca persiste em todas as animações.
 
     this.mixer = new THREE.AnimationMixer(model);
-    await this.loadAnimationClips(loader);
+    await this.loadAnimationClips(loader, CRITICAL_ANIMS);
 
     this.fadeTo('guard', 0);
     this.loaded = true;
+
+    // Golpes / reações / fim de luta — não bloqueiam o menu.
+    void this.loadAnimationClips(loader, DEFERRED_ANIMS).catch((error) => {
+      console.error('[OpponentModel] Falha ao carregar clips diferidos:', error);
+    });
   }
 
-  private async loadAnimationClips(loader: GLTFLoader): Promise<void> {
-    const entries = Object.entries(OPPONENT_ANIMATIONS) as [OpponentAnimKey, string][];
-
+  private async loadAnimationClips(
+    loader: GLTFLoader,
+    keys: readonly OpponentAnimKey[],
+  ): Promise<void> {
     await Promise.all(
-      entries.map(async ([key, url]) => {
+      keys.map(async (key) => {
+        const url = OPPONENT_ANIMATIONS[key];
         try {
           const gltf = await loader.loadAsync(url);
           const clip = gltf.animations[0];
@@ -102,9 +119,11 @@ export class OpponentModel {
             return;
           }
 
+          if (!this.mixer) return;
+
           const sanitized = this.stripRootMotion(clip);
           sanitized.name = key;
-          const action = this.mixer!.clipAction(sanitized);
+          const action = this.mixer.clipAction(sanitized);
 
           if (LOOPING_ANIMS.has(key)) {
             action.setLoop(THREE.LoopRepeat, Infinity);
@@ -126,6 +145,7 @@ export class OpponentModel {
 
     if (!isPlaying) {
       for (const action of this.actions.values()) action.paused = true;
+      this.reassertHandCollapse();
       return;
     }
 
@@ -133,6 +153,7 @@ export class OpponentModel {
 
     if (this.currentAnim === 'death') {
       this.mixer.update(dt);
+      this.reassertHandCollapse();
       return;
     }
 
@@ -141,6 +162,7 @@ export class OpponentModel {
 
     this.updateStanceAnimation(ai);
     this.mixer.update(dt);
+    this.reassertHandCollapse();
   }
 
   private updatePunchAnimation(dt: number, ai: OpponentAI): boolean {
@@ -161,6 +183,7 @@ export class OpponentModel {
     }
 
     this.mixer!.update(dt);
+    this.reassertHandCollapse();
     return true;
   }
 
@@ -174,6 +197,7 @@ export class OpponentModel {
     }
 
     this.mixer!.update(dt);
+    this.reassertHandCollapse();
     return true;
   }
 
@@ -298,6 +322,80 @@ export class OpponentModel {
     void this.faceCustomizer.reapplyAfterAnimationChange('hitHead');
   }
 
+  /**
+   * Anexa luvas do oponente (GLB se existir, senão procedural) e colapsa mãos Mixamo.
+   */
+  private async attachBoxingGloves(model: THREE.Object3D): Promise<void> {
+    const leftBone = this.findHandBone(model, 'left');
+    const rightBone = this.findHandBone(model, 'right');
+
+    if (!leftBone && !rightBone) {
+      console.warn('[OpponentModel] Bones das mãos não encontrados; luvas não anexadas.');
+      return;
+    }
+
+    const template = await loadOpponentGloveTemplate();
+
+    if (leftBone) this.mountGloveOnHand(leftBone, true, template);
+    if (rightBone) this.mountGloveOnHand(rightBone, false, template);
+  }
+
+  private mountGloveOnHand(
+    handBone: THREE.Object3D,
+    mirrored: boolean,
+    template: THREE.Object3D | null,
+  ): void {
+    // Mede a mão ANTES de colapsar os dedos.
+    const handLengthWorld = measureHandLengthWorld(handBone);
+
+    handBone.scale.setScalar(OPPONENT_HAND_MESH_COLLAPSE);
+    this.collapsedHandBones.push(handBone);
+    handBone.updateWorldMatrix(true, false);
+
+    const boneWorldScale = handBone.getWorldScale(new THREE.Vector3()).x;
+
+    const glove = createOpponentGlove({
+      mirrored,
+      template,
+      handLengthWorld,
+      handBoneWorldScale: Math.abs(boneWorldScale) || OPPONENT_HAND_MESH_COLLAPSE,
+    });
+    handBone.add(glove);
+  }
+
+  /** Clips Mixamo às vezes resetam scale; reaplica o colapso após o mixer. */
+  private reassertHandCollapse(): void {
+    for (const bone of this.collapsedHandBones) {
+      bone.scale.setScalar(OPPONENT_HAND_MESH_COLLAPSE);
+    }
+  }
+
+  private findHandBone(
+    root: THREE.Object3D,
+    side: 'left' | 'right',
+  ): THREE.Object3D | null {
+    const target = side === 'left' ? 'lefthand' : 'righthand';
+    let found: THREE.Object3D | null = null;
+
+    root.traverse((obj) => {
+      if (found) return;
+      const n = obj.name.replace(/[:_\-\s]/g, '').toLowerCase();
+      if (!n.endsWith(target)) return;
+      if (
+        n.includes('thumb') ||
+        n.includes('index') ||
+        n.includes('middle') ||
+        n.includes('ring') ||
+        n.includes('pinky')
+      ) {
+        return;
+      }
+      found = obj;
+    });
+
+    return found;
+  }
+
   private fitModelToRing(model: THREE.Group): void {
     const box = new THREE.Box3().setFromObject(model);
     const size = box.getSize(new THREE.Vector3());
@@ -347,6 +445,7 @@ export class OpponentModel {
     this.mixer = null;
     this.actions.clear();
     this.meshes.length = 0;
+    this.collapsedHandBones.length = 0;
     this.faceCustomizer.dispose();
     this.root.clear();
     this.loaded = false;

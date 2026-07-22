@@ -3,6 +3,7 @@ import { OpponentModel, type OpponentLoadConfig } from '../opponent/OpponentMode
 import type { OpponentFaceSource } from '../opponent/OpponentFaceCustomizer';
 import type { OpponentAI } from '../opponent/OpponentAI';
 import { OPPONENT_SPAWN_Z, RING_HALF } from './ringBounds';
+import { createBoxingGlove } from './BoxingGloveFactory';
 
 export { RING_HALF } from './ringBounds';
 export const RING_FLOOR_Y = 0;
@@ -181,7 +182,6 @@ export class RingScene {
 
     const skinMat = new THREE.MeshStandardMaterial({ color: 0xc68642, roughness: 0.6 });
     const shortsMat = new THREE.MeshStandardMaterial({ color: 0x2244aa, roughness: 0.7 });
-    const gloveMat = new THREE.MeshStandardMaterial({ color: 0x8b0000, roughness: 0.5 });
 
     const torso = new THREE.Mesh(new THREE.BoxGeometry(0.75, 1.1, 0.4), shortsMat);
     torso.position.y = 1.35;
@@ -193,14 +193,14 @@ export class RingScene {
     head.castShadow = true;
     group.add(head);
 
-    const leftGlove = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.28), gloveMat);
+    const leftGlove = createBoxingGlove({ scale: 1.05, mirrored: true });
     leftGlove.position.set(-0.55, 1.55, 0.25);
-    leftGlove.userData.isGlove = true;
+    leftGlove.rotation.set(0.2, 0.4, 0.3);
     group.add(leftGlove);
 
-    const rightGlove = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.28), gloveMat);
+    const rightGlove = createBoxingGlove({ scale: 1.05, mirrored: false });
     rightGlove.position.set(0.55, 1.55, 0.25);
-    rightGlove.userData.isGlove = true;
+    rightGlove.rotation.set(0.2, -0.4, -0.3);
     group.add(rightGlove);
 
     return group;
@@ -241,8 +241,8 @@ export class RingScene {
     if (!this.placeholderGroup || !this.placeholderBody) return;
 
     const gloves = this.placeholderGroup.children.filter(
-      (c) => c instanceof THREE.Mesh && c.userData.isGlove,
-    ) as THREE.Mesh[];
+      (c) => c.userData.isGlove,
+    );
     for (const g of gloves) {
       g.position.y = guarding ? 1.85 : 1.55;
       g.position.z = guarding ? 0.45 : 0.25;

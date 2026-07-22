@@ -30,6 +30,14 @@ export const OPPONENT_ANIMATIONS: Record<OpponentAnimKey, string> = {
   death: './models/anim-death.glb',
 };
 
+/** Clips necessários para liberar o menu (pose inicial). */
+export const CRITICAL_ANIMS: readonly OpponentAnimKey[] = ['guard'];
+
+/** Clips carregados em background após o oponente ficar visível. */
+export const DEFERRED_ANIMS: readonly OpponentAnimKey[] = (
+  Object.keys(OPPONENT_ANIMATIONS) as OpponentAnimKey[]
+).filter((key) => !CRITICAL_ANIMS.includes(key));
+
 export const PUNCH_TO_ANIM: Record<PunchType, OpponentAnimKey> = {
   [PunchType.Jab]: 'jab',
   [PunchType.Cross]: 'cross',

@@ -26,10 +26,15 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "convert:anims": "node scripts/convert-opponent-anims.mjs"
+    "convert:anims": "node scripts/convert-opponent-anims.mjs",
+    "optimize:assets": "node scripts/optimize-opponent-assets.mjs"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.4.1",
+    "@gltf-transform/extensions": "^4.4.1",
+    "@gltf-transform/functions": "^4.4.1",
     "@types/three": "^0.176.0",
+    "meshoptimizer": "^1.2.0",
     "typescript": "~5.7.2",
     "vite": "^6.3.5"
   },

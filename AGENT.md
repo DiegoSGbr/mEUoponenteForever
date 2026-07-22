@@ -320,6 +320,10 @@ npm run build
 | Animações separadas por golpe (10 clips GLB) | ✅ | 2026-06-28 | `OpponentAssets.ts`, `anim-*.glb`, mapeamento `PunchType` |
 | Caminhada ao aproximar (`anim-walking`) | ✅ | 2026-06-29 | Substitui Jogging With Box; estados Approach/Counter |
 | Morte ao perder (`anim-death`) + rosto na animação | ✅ | 2026-06-29 | `playDefeat`, `OpponentFaceConfig`, reaplica textura no clip death |
+| Load oponente sem placeholder / wait assets | ✅ | 2026-07-12 | Ring invisível até Mixamo pronto; menu “Carregando…” |
+| Otimização assets oponente (~500 MB → ~2 MB) | ✅ | 2026-07-12 | Strip clips + Boxing meshopt/WebP; load 2 fases (guard crítico) |
+| Luvas de boxe vermelhas (FP + oponente) | ✅ | 2026-07-12 | `BoxingGloveFactory`; FP com rotação por golpe; anexadas aos bones Mixamo |
+| Luva GLB RenderCrate (oponente + FP) | ✅ | 2026-07-21 | `boxing-glove.glb` ~250KB meshopt; tint vermelho; `BoxingGloveAssets.ts` |
 | Hook troca de rosto por imagem | 🚧 | | `OpponentFaceCustomizer.ts` — stub para próxima fase |
 | _(próximas correções)_ | ⬜ | | Adicionar linhas aqui |
 
