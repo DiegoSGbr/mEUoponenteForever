@@ -15,6 +15,8 @@ import {
 } from './OpponentAssets';
 import { OpponentFaceCustomizer, type OpponentFaceSource } from './OpponentFaceCustomizer';
 import { OPPONENT_FACE_REAPPLY_ON_ANIM } from './OpponentFaceConfig';
+import type { FaceSide } from './OpponentFaceConfig';
+import type { InjuryRegion } from './OpponentFaceInjuryConfig';
 import {
   createOpponentGlove,
   loadOpponentGloveTemplate,
@@ -48,7 +50,7 @@ export class OpponentModel {
   }
 
   /** Garante texturas prontas e compila shaders antes da primeira renderização visível. */
-  prepareForDisplay(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void {
+  async prepareForDisplay(renderer: THREE.WebGLRenderer, camera: THREE.Camera): Promise<void> {
     this.root.traverse((obj) => {
       if (!(obj instanceof THREE.Mesh)) return;
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
@@ -66,6 +68,7 @@ export class OpponentModel {
         }
       }
     });
+    await this.faceCustomizer.prepareBase(renderer);
     renderer.compile(this.root, camera);
   }
 
@@ -90,7 +93,7 @@ export class OpponentModel {
 
     this.faceCustomizer.bindFromModel(model);
     await this.faceCustomizer.applySource(config.face ?? { kind: 'mixamo-default' });
-    // Rosto fica no mesh base (Boxing.glb); troca persiste em todas as animações.
+    // Rosto fica no mesh base (Boxing.glb); troca + ferimentos PBR persistem nas animações.
 
     this.mixer = new THREE.AnimationMixer(model);
     await this.loadAnimationClips(loader, CRITICAL_ANIMS);
@@ -153,15 +156,23 @@ export class OpponentModel {
 
     if (this.currentAnim === 'death') {
       this.mixer.update(dt);
+      this.faceCustomizer.update(dt);
       this.reassertHandCollapse();
       return;
     }
 
-    if (this.updatePunchAnimation(dt, ai)) return;
-    if (this.updateReactionAnimation(dt)) return;
+    if (this.updatePunchAnimation(dt, ai)) {
+      this.faceCustomizer.update(dt);
+      return;
+    }
+    if (this.updateReactionAnimation(dt)) {
+      this.faceCustomizer.update(dt);
+      return;
+    }
 
     this.updateStanceAnimation(ai);
     this.mixer.update(dt);
+    this.faceCustomizer.update(dt);
     this.reassertHandCollapse();
   }
 
@@ -289,8 +300,27 @@ export class OpponentModel {
   resetForMatch(): void {
     this.hitReactionPlaying = false;
     this.activePunchToken = '';
+    this.faceCustomizer.resetInjury();
     this.fadeTo('guard', 0);
     void this.refreshFace();
+  }
+
+  /**
+   * Acumula ferimento facial (região na visão do jogador → canais RGBA).
+   */
+  registerFaceHit(side: FaceSide, damage: number): void {
+    const region: InjuryRegion =
+      side === 'left' ? 'leftEye' : side === 'right' ? 'rightEye' : 'noseMouth';
+    this.registrarSoco(region, damage);
+  }
+
+  /** API canônica de impacto facial (também usada pelo hitbox). */
+  registrarSoco(region: InjuryRegion, damage: number): void {
+    this.faceCustomizer.registrarSoco(region, damage);
+    const v = this.faceCustomizer.injury.target;
+    console.info(
+      `[OpponentFace] soco ${region} R=${v.x.toFixed(2)} G=${v.y.toFixed(2)} B=${v.z.toFixed(2)} A=${v.w.toFixed(2)}`,
+    );
   }
 
   async setFaceSource(source: OpponentFaceSource): Promise<void> {

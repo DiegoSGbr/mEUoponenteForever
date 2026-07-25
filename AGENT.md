@@ -324,7 +324,8 @@ npm run build
 | Otimização assets oponente (~500 MB → ~2 MB) | ✅ | 2026-07-12 | Strip clips + Boxing meshopt/WebP; load 2 fases (guard crítico) |
 | Luvas de boxe vermelhas (FP + oponente) | ✅ | 2026-07-12 | `BoxingGloveFactory`; FP com rotação por golpe; anexadas aos bones Mixamo |
 | Luva GLB RenderCrate (oponente + FP) | ✅ | 2026-07-21 | `boxing-glove.glb` ~250KB meshopt; tint vermelho; `BoxingGloveAssets.ts` |
-| Hook troca de rosto por imagem | 🚧 | | `OpponentFaceCustomizer.ts` — stub para próxima fase |
+| Ferimentos PBR dinâmicos no rosto (RGBA + lerp) | ✅ | 2026-07-25 | `onBeforeCompile`: mask/albedo/normal/roughness; `registrarSoco`; prompts em `OpponentFaceInjuryPrompts.ts` |
+| Hook troca de rosto por imagem | 🚧 | | Albedo custom via `applySource`; injury maps no mesmo UV; falta UI de upload |
 | _(próximas correções)_ | ⬜ | | Adicionar linhas aqui |
 
 ---

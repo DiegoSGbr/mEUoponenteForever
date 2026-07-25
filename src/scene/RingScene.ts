@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OpponentModel, type OpponentLoadConfig } from '../opponent/OpponentModel';
 import type { OpponentFaceSource } from '../opponent/OpponentFaceCustomizer';
+import type { InjuryRegion } from '../opponent/OpponentFaceInjuryConfig';
 import type { OpponentAI } from '../opponent/OpponentAI';
 import { OPPONENT_SPAWN_Z, RING_HALF } from './ringBounds';
 import { createBoxingGlove } from './BoxingGloveFactory';
@@ -63,8 +64,11 @@ export class RingScene {
     return this.modelLoadPromise;
   }
 
-  prepareOpponentDisplay(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void {
-    this.opponentModel?.prepareForDisplay(renderer, camera);
+  async prepareOpponentDisplay(
+    renderer: THREE.WebGLRenderer,
+    camera: THREE.Camera,
+  ): Promise<void> {
+    await this.opponentModel?.prepareForDisplay(renderer, camera);
   }
 
   async setOpponentFace(source: OpponentFaceSource): Promise<void> {
@@ -85,6 +89,28 @@ export class RingScene {
 
   resetOpponentForMatch(): void {
     this.opponentModel?.resetForMatch();
+  }
+
+  /**
+   * Ferimento facial PBR (canais RGBA).
+   * Punch à esquerda da tela → leftEye; centro → noseMouth; direita → rightEye.
+   */
+  registerOpponentFaceHit(punchWorldPos: THREE.Vector3, damage: number): void {
+    if (!this.opponentModel?.isLoaded) return;
+
+    const box = this.opponentHitbox;
+    const centerX = (box.min.x + box.max.x) * 0.5;
+    const delta = punchWorldPos.x - centerX;
+    let region: InjuryRegion;
+    if (Math.abs(delta) < 0.05) {
+      region = 'noseMouth';
+    } else if (delta < 0) {
+      region = 'leftEye';
+    } else {
+      region = 'rightEye';
+    }
+
+    this.opponentModel.registrarSoco(region, damage);
   }
 
   private async loadOpponentModelInternal(config: OpponentLoadConfig): Promise<void> {

@@ -105,7 +105,7 @@ export class Game {
       this.rig.applyGloveTemplate(gloveTemplate);
 
       await this.ring.loadOpponentModel();
-      this.ring.prepareOpponentDisplay(this.renderer, this.rig.camera);
+      await this.ring.prepareOpponentDisplay(this.renderer, this.rig.camera);
     } catch (error) {
       console.error('[Game] Falha ao preparar assets:', error);
     } finally {
@@ -387,6 +387,7 @@ export class Game {
       this.audio.playImpact();
       this.spawnImpactParticles(this.ring.getOpponentWorldPosition());
       this.ring.applyOpponentHitFlash();
+      this.ring.registerOpponentFaceHit(this.rig.getPunchWorldPosition(), result.damage);
       if (result.stagger) this.combat.triggerStagger(0.4);
     }
 
