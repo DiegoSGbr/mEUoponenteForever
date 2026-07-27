@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { FACE_BRUISE_REGIONS, FACE_PORTRAIT_UV_ELLIPSE } from './OpponentFaceConfig';
 import { INJURY_MAP_URLS } from './OpponentFaceInjuryConfig';
 import { loadFaceInjuryMaps, type FaceInjuryMaps } from './OpponentFaceInjuryMaps';
 import { initFaceInjuryTextures, patchFaceInjuryMaterial } from './OpponentFaceInjuryShader';
@@ -19,7 +20,22 @@ import type { InjuryRegion } from './OpponentFaceInjuryConfig';
  */
 export type OpponentFaceSource =
   | { kind: 'mixamo-default' }
-  | { kind: 'image'; imageUrl: string; mimeType?: string };
+  /** Substitui o atlas inteiro (imagem já no layout UV do Ch33_1001). */
+  | { kind: 'image'; imageUrl: string; mimeType?: string }
+  /** Retrato comum (foto de rosto) — composto na ilha UV sobre o atlas original. */
+  | { kind: 'portrait'; imageUrl: string };
+
+/** Ajuste fino manual do encaixe do retrato (sliders no menu). */
+export interface PortraitAdjust {
+  /** Deslocamento horizontal em UV (±0.03 ≈ ±30 px no atlas 1024). */
+  du: number;
+  /** Deslocamento vertical em UV. */
+  dv: number;
+  /** Multiplicador de escala (1 = automático por distância dos olhos). */
+  scale: number;
+}
+
+export const DEFAULT_PORTRAIT_ADJUST: PortraitAdjust = { du: 0, dv: 0, scale: 1 };
 
 export interface OpponentFaceSlot {
   mesh: THREE.SkinnedMesh;
@@ -37,13 +53,14 @@ export class OpponentFaceCustomizer {
   readonly injury = new OpponentFaceInjuryState();
   private injuryMaps: FaceInjuryMaps | null = null;
   private mapsPromise: Promise<void> | null = null;
+  private portraitAdjust: PortraitAdjust = { ...DEFAULT_PORTRAIT_ADJUST };
 
   get source(): OpponentFaceSource {
     return this.currentSource;
   }
 
   get hasCustomFace(): boolean {
-    return this.currentSource.kind === 'image' && this.pendingTexture !== null;
+    return this.currentSource.kind !== 'mixamo-default' && this.pendingTexture !== null;
   }
 
   /** Paths esperados para arte final (documentação / hot-reload). */
@@ -110,13 +127,18 @@ export class OpponentFaceCustomizer {
 
     if (source.kind === 'image') {
       await this.applyImageTexture(source.imageUrl);
+      return;
+    }
+
+    if (source.kind === 'portrait') {
+      await this.applyPortraitTexture(source.imageUrl);
     }
   }
 
   async reapplyAfterAnimationChange(animLabel?: string): Promise<void> {
     if (this.slots.length === 0) return;
 
-    if (this.currentSource.kind === 'image' && this.pendingTexture) {
+    if (this.currentSource.kind !== 'mixamo-default' && this.pendingTexture) {
       this.applyAlbedoToSlots(this.pendingTexture);
     } else {
       this.restoreOriginalMapsOnly();
@@ -146,6 +168,14 @@ export class OpponentFaceCustomizer {
 
   resetInjury(): void {
     this.injury.reset();
+  }
+
+  /** Ajuste fino do encaixe do retrato — recompõe na hora se houver retrato ativo. */
+  async setPortraitAdjust(adjust: Partial<PortraitAdjust>): Promise<void> {
+    this.portraitAdjust = { ...this.portraitAdjust, ...adjust };
+    if (this.currentSource.kind === 'portrait') {
+      await this.applyPortraitTexture(this.currentSource.imageUrl);
+    }
   }
 
   private async ensureInjuryMaps(): Promise<void> {
@@ -190,6 +220,136 @@ export class OpponentFaceCustomizer {
       this.patchAllMaterials();
     } catch (error) {
       console.error('[OpponentFaceCustomizer] Falha ao carregar imagem de rosto:', error);
+    }
+  }
+
+  /**
+   * Compõe um retrato comum na ilha UV do rosto, por cima do atlas original.
+   * Recorte elíptico com borda suavizada (feather) para fundir com a pele.
+   */
+  private async applyPortraitTexture(imageUrl: string): Promise<void> {
+    if (this.slots.length === 0) {
+      console.warn('[OpponentFaceCustomizer] Nenhum slot de rosto no mesh base.');
+      return;
+    }
+
+    try {
+      const portrait = await loadImageElement(imageUrl);
+      const baseImage = this.slots[0]!.originalMap?.image as CanvasImageSource | undefined;
+      if (!baseImage) {
+        throw new Error('Atlas base indisponível para composição.');
+      }
+
+      const size = 1024;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d')!;
+
+      // 1. Atlas original por baixo (roupa/pele/orelhas continuam intactos).
+      ctx.drawImage(baseImage, 0, 0, size, size);
+
+      // 2. Retrato recortado em elipse com borda suave.
+      const e = FACE_PORTRAIT_UV_ELLIPSE;
+      const cx = e.u * size;
+      const cy = e.v * size;
+      const rx = e.rx * size;
+      const ry = e.ry * size;
+
+      const layer = document.createElement('canvas');
+      layer.width = size;
+      layer.height = size;
+      const lctx = layer.getContext('2d')!;
+
+      // Encaixe ancorado nos OLHOS: a linha dos olhos da foto é alinhada com a
+      // linha dos olhos do modelo no atlas, e a escala é definida pela distância
+      // interpupilar. Assim olhos/nariz/boca da foto caem nas UVs certas — e os
+      // ferimentos (olho roxo, sangue) também acertam os traços da foto.
+      // Âncoras típicas de retrato frontal (rosto ocupando ~60–70% da foto):
+      const PHOTO_EYE_LINE_V = 0.38; // linha dos olhos a ~38% do topo
+      const PHOTO_EYE_SPAN_U = 0.2; // distância entre pupilas ≈ 20% da largura
+      const eyeL = FACE_BRUISE_REGIONS.left.eye;
+      const eyeR = FACE_BRUISE_REGIONS.right.eye;
+      const uvEyeMidX = ((eyeL.u + eyeR.u) / 2) * size;
+      const uvEyeMidY = ((eyeL.v + eyeR.v) / 2) * size;
+      const uvEyeSpan = (eyeR.u - eyeL.u) * size;
+
+      const pw = portrait.naturalWidth;
+      const ph = portrait.naturalHeight;
+      const adj = this.portraitAdjust;
+      const scale = (uvEyeSpan / (PHOTO_EYE_SPAN_U * pw)) * adj.scale;
+      const dw = pw * scale;
+      const dh = ph * scale;
+      const drawX = uvEyeMidX + adj.du * size - dw / 2;
+      const drawY = uvEyeMidY + adj.dv * size - PHOTO_EYE_LINE_V * dh;
+      lctx.drawImage(portrait, drawX, drawY, dw, dh);
+
+      // Máscara elíptica com borda suave (feather ~18% do raio) via destination-in.
+      // Gradiente criado DENTRO do espaço transformado (unitário) — coordenadas
+      // de gradiente são interpretadas no transform vigente na hora do fill.
+      lctx.globalCompositeOperation = 'destination-in';
+      lctx.save();
+      lctx.translate(cx, cy);
+      lctx.scale(rx, ry);
+      const mask = lctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+      mask.addColorStop(0, 'rgba(0,0,0,1)');
+      mask.addColorStop(0.72, 'rgba(0,0,0,1)');
+      mask.addColorStop(1, 'rgba(0,0,0,0)');
+      lctx.fillStyle = mask;
+      lctx.beginPath();
+      lctx.arc(0, 0, 1, 0, Math.PI * 2);
+      lctx.fill();
+      lctx.restore();
+      lctx.globalCompositeOperation = 'source-over';
+
+      // 3. Correção suave de tom de pele: aproxima a foto do tom do modelo
+      //    para a borda oval não marcar (foto muito clara/escura destoa).
+      const baseSkin = averageColor(ctx, [
+        [FACE_BRUISE_REGIONS.left.cheek.u * size, FACE_BRUISE_REGIONS.left.cheek.v * size],
+        [FACE_BRUISE_REGIONS.right.cheek.u * size, FACE_BRUISE_REGIONS.right.cheek.v * size],
+      ]);
+      // Testa da foto (acima da linha dos olhos) — região quase sempre de pele.
+      const foreheadX = uvEyeMidX + adj.du * size;
+      const foreheadY = uvEyeMidY + adj.dv * size;
+      const photoSkin = averageColor(lctx, [
+        [foreheadX, foreheadY - dh * 0.1],
+        [foreheadX - dw * 0.06, foreheadY - dh * 0.09],
+        [foreheadX + dw * 0.06, foreheadY - dh * 0.09],
+      ]);
+      if (baseSkin && photoSkin) {
+        const strength = 0.75; // aproxima bem do tom do modelo (borda some)
+        const factor = baseSkin.map((b, i) => {
+          const ratio = THREE.MathUtils.clamp(b / Math.max(photoSkin[i]!, 1), 0.7, 1.4);
+          return 1 + (ratio - 1) * strength;
+        });
+        const img = lctx.getImageData(0, 0, size, size);
+        const d = img.data;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] === 0) continue;
+          d[i] = Math.min(255, d[i]! * factor[0]!);
+          d[i + 1] = Math.min(255, d[i + 1]! * factor[1]!);
+          d[i + 2] = Math.min(255, d[i + 2]! * factor[2]!);
+        }
+        lctx.putImageData(img, 0, 0);
+      }
+
+      ctx.drawImage(layer, 0, 0);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.flipY = false;
+      texture.needsUpdate = true;
+
+      this.disposePending();
+      this.pendingTexture = texture;
+      this.applyAlbedoToSlots(texture);
+      // Ferimentos continuam funcionando: mesmo espaço UV da ilha do rosto.
+      this.patchAllMaterials();
+      console.info('[OpponentFaceCustomizer] Retrato composto no atlas do rosto.');
+    } catch (error) {
+      console.error('[OpponentFaceCustomizer] Falha ao compor retrato:', error);
+      // Fallback: aplica a imagem crua como atlas (comportamento antigo).
+      await this.applyImageTexture(imageUrl);
     }
   }
 
@@ -246,4 +406,35 @@ export class OpponentFaceCustomizer {
     this.pendingTexture?.dispose();
     this.pendingTexture = null;
   }
+}
+
+/** Média RGB de patches 8×8 nos pontos dados (ignora pixels transparentes). */
+function averageColor(
+  ctx: CanvasRenderingContext2D,
+  points: ReadonlyArray<readonly [number, number]>,
+): [number, number, number] | null {
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let n = 0;
+  for (const [px, py] of points) {
+    const data = ctx.getImageData(Math.round(px) - 4, Math.round(py) - 4, 8, 8).data;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3]! < 200) continue;
+      r += data[i]!;
+      g += data[i + 1]!;
+      b += data[i + 2]!;
+      n++;
+    }
+  }
+  return n > 0 ? [r / n, g / n, b / n] : null;
+}
+
+function loadImageElement(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Falha ao carregar imagem: ${url}`));
+    img.src = url;
+  });
 }

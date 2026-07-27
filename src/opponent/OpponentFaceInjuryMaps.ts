@@ -78,31 +78,47 @@ function clipToFaceSkinGate(ctx: CanvasRenderingContext2D, size: number): void {
 }
 
 /** Máscara RGBA procedural — só features do rosto (sem lavagem no scalp). */
-export function createProceduralInjuryMask(size = INJURY_ATLAS_SIZE): THREE.CanvasTexture {
+export function createProceduralInjuryMask(size = INJURY_ATLAS_SIZE): THREE.DataTexture {
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d')!;
   ctx.clearRect(0, 0, size, size);
 
-  // Canal R — esquerda da tela
+  // Canal R — esquerda da tela (órbita + bolsa inferior — onde o olho roxo aparece)
   ctx.globalCompositeOperation = 'lighter';
-  paintSoftEllipse(ctx, FACE_BRUISE_REGIONS.left.eye, size, 'rgba(255,0,0,1)');
-  paintSoftEllipse(ctx, FACE_BRUISE_REGIONS.left.brow, size, 'rgba(255,0,0,0.85)');
-  paintSoftEllipse(ctx, FACE_BRUISE_REGIONS.left.cheek, size, 'rgba(255,0,0,0.65)');
+  const leftEye = FACE_BRUISE_REGIONS.left.eye;
+  paintSoftEllipse(ctx, leftEye, size, 'rgba(255,0,0,1)', 1.3);
+  paintSoftEllipse(
+    ctx,
+    { u: leftEye.u, v: leftEye.v + 0.03, rx: leftEye.rx * 1.4, ry: leftEye.ry * 1.2 },
+    size,
+    'rgba(255,0,0,1)',
+    1.35,
+  );
+  paintSoftEllipse(ctx, FACE_BRUISE_REGIONS.left.brow, size, 'rgba(255,0,0,0.9)', 1.2);
+  paintSoftEllipse(ctx, FACE_BRUISE_REGIONS.left.cheek, size, 'rgba(255,0,0,0.55)');
 
   // Canal G — direita da tela
-  paintSoftEllipse(ctx, FACE_BRUISE_REGIONS.right.eye, size, 'rgba(0,255,0,1)');
-  paintSoftEllipse(ctx, FACE_BRUISE_REGIONS.right.brow, size, 'rgba(0,255,0,0.85)');
-  paintSoftEllipse(ctx, FACE_BRUISE_REGIONS.right.cheek, size, 'rgba(0,255,0,0.65)');
+  const rightEye = FACE_BRUISE_REGIONS.right.eye;
+  paintSoftEllipse(ctx, rightEye, size, 'rgba(0,255,0,1)', 1.3);
+  paintSoftEllipse(
+    ctx,
+    { u: rightEye.u, v: rightEye.v + 0.03, rx: rightEye.rx * 1.4, ry: rightEye.ry * 1.2 },
+    size,
+    'rgba(0,255,0,1)',
+    1.35,
+  );
+  paintSoftEllipse(ctx, FACE_BRUISE_REGIONS.right.brow, size, 'rgba(0,255,0,0.9)', 1.2);
+  paintSoftEllipse(ctx, FACE_BRUISE_REGIONS.right.cheek, size, 'rgba(0,255,0,0.55)');
 
   // Canal B — nariz / filete / boca
-  paintSoftEllipse(ctx, FACE_NOSE_BLOOD, size, 'rgba(0,0,255,1)');
-  paintSoftEllipse(ctx, FACE_NOSE_DRIP, size, 'rgba(0,0,255,0.95)', 1.25);
+  paintSoftEllipse(ctx, FACE_NOSE_BLOOD, size, 'rgba(0,0,255,1)', 1.4);
+  paintSoftEllipse(ctx, FACE_NOSE_DRIP, size, 'rgba(0,0,255,1)', 1.5);
   paintSoftEllipse(ctx, FACE_BRUISE_REGIONS.left.mouth, size, 'rgba(0,0,255,0.55)');
   paintSoftEllipse(ctx, FACE_BRUISE_REGIONS.right.mouth, size, 'rgba(0,0,255,0.55)');
 
-  // Canal A = bochechas (peso). premultiplyAlpha=false preserva R/G/B mesmo com A baixo.
+  // Canal A = bochechas. A >= max(R,G,B,cheek) evita WebGL apagar R/G/B no upload.
   const tmp = document.createElement('canvas');
   tmp.width = size;
   tmp.height = size;
@@ -113,61 +129,158 @@ export function createProceduralInjuryMask(size = INJURY_ATLAS_SIZE): THREE.Canv
 
   const merged = ctx.getImageData(0, 0, size, size);
   for (let i = 0; i < merged.data.length; i += 4) {
-    merged.data[i + 3] = cheek[i];
+    const r = merged.data[i];
+    const g = merged.data[i + 1];
+    const b = merged.data[i + 2];
+    const cheekA = cheek[i];
+    merged.data[i + 3] = Math.max(cheekA, r, g, b);
   }
   ctx.putImageData(merged, 0, 0);
 
   clipToFaceSkinGate(ctx, size);
 
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.NoColorSpace;
-  tex.flipY = false;
-  tex.premultiplyAlpha = false;
-  tex.needsUpdate = true;
-  return tex;
+  return canvasToInjuryTexture(canvas, THREE.NoColorSpace);
 }
 
-/** Pinta olho roxo em camadas (órbita escura + inchaço) — bem legível no ringue. */
+/**
+ * Olho roxo na pele clara (bolsa inferior ~V+0.03). Centro da órbita é escuro demais.
+ */
 function paintBlackEye(ctx: CanvasRenderingContext2D, side: 'left' | 'right', size: number): void {
   const eye = FACE_BRUISE_REGIONS[side].eye;
   const brow = FACE_BRUISE_REGIONS[side].brow;
-  paintSoftEllipse(ctx, { ...eye, rx: eye.rx * 1.35, ry: eye.ry * 1.4 }, size, 'rgba(55,18,90,1)', 1.25);
-  paintSoftEllipse(ctx, eye, size, 'rgba(30,8,55,1)', 1.0);
+  const towardNose = side === 'left' ? 0.014 : -0.014;
+
+  // Bolsa inferior — leitura principal do olho roxo
   paintSoftEllipse(
     ctx,
-    { u: eye.u, v: eye.v + 0.015, rx: eye.rx * 1.2, ry: eye.ry * 0.75 },
+    { u: eye.u, v: eye.v + 0.032, rx: eye.rx * 1.55, ry: eye.ry * 1.25 },
     size,
-    'rgba(140,45,55,0.85)',
+    'rgba(120,40,150,1)',
+    1.4,
+  );
+  paintSoftEllipse(
+    ctx,
+    { u: eye.u + towardNose * 0.35, v: eye.v + 0.045, rx: eye.rx * 1.25, ry: eye.ry * 0.95 },
+    size,
+    'rgba(190,55,75,1)',
+    1.25,
+  );
+  // Meia-lua sob o cílio
+  paintSoftEllipse(
+    ctx,
+    { u: eye.u, v: eye.v + 0.02, rx: eye.rx * 1.35, ry: eye.ry * 0.7 },
+    size,
+    'rgba(55,15,90,1)',
     1.15,
   );
-  paintSoftEllipse(ctx, brow, size, 'rgba(100,12,18,1)', 1.1);
-}
-
-/** Filete de sangue estático abaixo do nariz (sem animação). V maior = em direção à boca. */
-function paintNoseBleed(ctx: CanvasRenderingContext2D, size: number): void {
-  paintSoftEllipse(ctx, FACE_NOSE_BLOOD, size, 'rgba(120,10,14,1)', 1.15);
-  const drip = FACE_NOSE_DRIP;
-  const { x, y, rx, ry } = uvToCanvas(drip, size);
-  // Do nariz (V menor / y menor) para a boca (V maior / y maior)
-  const grad = ctx.createLinearGradient(x, y - ry, x, y + ry);
-  grad.addColorStop(0, 'rgba(150,12,16,0.98)');
-  grad.addColorStop(0.45, 'rgba(110,6,10,0.95)');
-  grad.addColorStop(1, 'rgba(60,0,0,0.2)');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.ellipse(x, y, rx * 0.75, ry * 1.2, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // Pálpebra superior (anel, evita preencher só o buraco escuro)
   paintSoftEllipse(
     ctx,
-    { u: drip.u, v: drip.v + drip.ry * 0.7, rx: 0.007, ry: 0.01 },
+    { u: eye.u, v: eye.v - 0.01, rx: eye.rx * 1.25, ry: eye.ry * 0.75 },
     size,
-    'rgba(95,0,0,0.9)',
+    'rgba(90,30,130,0.95)',
+    1.2,
+  );
+  // Corte na sobrancelha
+  paintSoftEllipse(ctx, brow, size, 'rgba(175,25,30,1)', 1.35);
+  paintSoftEllipse(
+    ctx,
+    { u: brow.u + towardNose * 0.2, v: brow.v + 0.01, rx: brow.rx * 0.75, ry: brow.ry * 1.6 },
+    size,
+    'rgba(110,8,12,1)',
+    1.15,
+  );
+}
+
+/**
+ * Sangue estático no nariz: poça no philtrum + filete grosso até o lábio.
+ */
+function paintNoseBleed(ctx: CanvasRenderingContext2D, size: number): void {
+  paintSoftEllipse(ctx, FACE_NOSE_BLOOD, size, 'rgba(200,18,22,1)', 1.5);
+  paintSoftEllipse(
+    ctx,
+    { ...FACE_NOSE_BLOOD, v: FACE_NOSE_BLOOD.v + 0.014, rx: FACE_NOSE_BLOOD.rx * 1.15, ry: FACE_NOSE_BLOOD.ry * 0.8 },
+    size,
+    'rgba(150,8,12,1)',
+    1.25,
+  );
+
+  const drip = FACE_NOSE_DRIP;
+  const { x, y, rx, ry } = uvToCanvas(drip, size);
+  const y0 = y - ry * 1.2;
+  const y1 = y + ry * 1.25;
+
+  const grad = ctx.createLinearGradient(x, y0, x, y1);
+  grad.addColorStop(0, 'rgba(210,25,28,1)');
+  grad.addColorStop(0.5, 'rgba(160,10,14,1)');
+  grad.addColorStop(1, 'rgba(100,0,4,0.85)');
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = Math.max(4, rx * 2.6);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x - rx * 0.2, y0);
+  ctx.quadraticCurveTo(x + rx * 0.85, y, x - rx * 0.05, y1);
+  ctx.stroke();
+  // segundo passe mais fino (núcleo escuro)
+  ctx.strokeStyle = 'rgba(90,0,4,0.95)';
+  ctx.lineWidth = Math.max(2, rx * 1.2);
+  ctx.beginPath();
+  ctx.moveTo(x - rx * 0.15, y0 + ry * 0.1);
+  ctx.quadraticCurveTo(x + rx * 0.55, y, x, y1);
+  ctx.stroke();
+  ctx.restore();
+
+  paintSoftEllipse(
+    ctx,
+    { u: drip.u, v: drip.v + drip.ry * 0.9, rx: 0.01, ry: 0.014 },
+    size,
+    'rgba(130,0,6,1)',
+    1.25,
+  );
+  paintSoftEllipse(
+    ctx,
+    { u: drip.u - 0.004, v: drip.v + 0.005, rx: 0.005, ry: 0.014 },
+    size,
+    'rgba(230,90,90,0.7)',
     1,
   );
 }
 
+/** DataTexture explícita — evita quirks de CanvasTexture + alpha. */
+function canvasToInjuryTexture(
+  canvas: HTMLCanvasElement,
+  colorSpace: THREE.ColorSpace,
+): THREE.DataTexture {
+  const ctx = canvas.getContext('2d')!;
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = new Uint8Array(img.data);
+  const tex = new THREE.DataTexture(data, canvas.width, canvas.height);
+  tex.colorSpace = colorSpace;
+  tex.flipY = false;
+  tex.premultiplyAlpha = false;
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/** Garante alpha alto onde há cor (mix do shader não “some” nas bordas). */
+function hardenPaintedAlpha(ctx: CanvasRenderingContext2D, size: number): void {
+  const img = ctx.getImageData(0, 0, size, size);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i] + d[i + 1] + d[i + 2] > 12) {
+      d[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
 /** Albedo de hematoma/sangue (sRGB). */
-export function createProceduralInjuryAlbedo(size = INJURY_ATLAS_SIZE): THREE.CanvasTexture {
+export function createProceduralInjuryAlbedo(size = INJURY_ATLAS_SIZE): THREE.DataTexture {
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -191,14 +304,10 @@ export function createProceduralInjuryAlbedo(size = INJURY_ATLAS_SIZE): THREE.Ca
   paint(FACE_BRUISE_REGIONS.left.mouth, 'rgb(140,25,30)', 0.85);
   paint(FACE_BRUISE_REGIONS.right.mouth, 'rgb(140,25,30)', 0.85);
 
+  hardenPaintedAlpha(ctx, size);
   clipToFaceSkinGate(ctx, size);
 
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.flipY = false;
-  tex.premultiplyAlpha = false;
-  tex.needsUpdate = true;
-  return tex;
+  return canvasToInjuryTexture(canvas, THREE.SRGBColorSpace);
 }
 
 /**

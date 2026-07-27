@@ -13,7 +13,7 @@ export interface FaceInjuryUniforms {
   u_faceSkinGate: { value: THREE.Vector4 };
 }
 
-const CACHE_KEY = 'opponent-face-injury-pbr-v7-eyes';
+const CACHE_KEY = 'opponent-face-injury-pbr-v9-staged';
 
 /**
  * Injeta ferimentos PBR no MeshStandardMaterial do rosto via onBeforeCompile.
@@ -89,10 +89,20 @@ export function patchFaceInjuryMaterial(
       '		injuryMask.b * u_injuryVectors.z +',
       '		injuryMask.a * u_injuryVectors.w,',
       '		0.0, 1.0 );',
-      '	faceInjuryWeight = regionW * uvGate * scalpGate;',
+      '	float gatedW = regionW * uvGate * scalpGate;',
+      // Estágios (referência Fight Night/UFC):
+      //  stage1 = vermelhidão imediata (pele irritada pelo impacto)
+      //  stage2 = hematoma instalado (roxo/sangue do albedo de injury)
+      '	float stage1 = smoothstep( 0.03, 0.35, gatedW );',
+      '	float stage2 = smoothstep( 0.30, 0.80, gatedW );',
       '	vec4 injuryAlbedo = texture2D( u_injuryAlbedoMap, vMapUv );',
-      '	float albedoW = faceInjuryWeight * max( injuryAlbedo.a, 0.95 );',
-      '	diffuseColor.rgb = mix( diffuseColor.rgb, injuryAlbedo.rgb, clamp( albedoW, 0.0, 1.0 ) );',
+      '	float injPresence = smoothstep( 0.02, 0.10, max( injuryAlbedo.r, max( injuryAlbedo.g, injuryAlbedo.b ) ) );',
+      // Vermelhidão derivada da própria pele (mantém tom/sardas por baixo).
+      '	vec3 rednessColor = diffuseColor.rgb * vec3( 1.30, 0.62, 0.55 ) + vec3( 0.05, 0.0, 0.0 );',
+      '	vec3 woundedColor = mix( rednessColor, injuryAlbedo.rgb, stage2 * injPresence * max( injuryAlbedo.a, 0.92 ) );',
+      '	diffuseColor.rgb = mix( diffuseColor.rgb, woundedColor, clamp( stage1, 0.0, 1.0 ) );',
+      // Relevo/brilho só quando o hematoma se instala (stage2).
+      '	faceInjuryWeight = gatedW * stage2;',
       '}',
     ].join('\n');
 

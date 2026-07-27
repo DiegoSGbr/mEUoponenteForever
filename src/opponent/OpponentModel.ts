@@ -4,7 +4,8 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { PUNCH_CONFIGS } from '../combat/PunchType';
 import type { OpponentAI } from './OpponentAI';
 import {
-  ANIM_FADE_SEC,
+  ANIM_EXIT_BLEND_SEC,
+  ANIM_FADES,
   CRITICAL_ANIMS,
   DEFERRED_ANIMS,
   LOOPING_ANIMS,
@@ -13,7 +14,11 @@ import {
   PUNCH_TO_ANIM,
   type OpponentAnimKey,
 } from './OpponentAssets';
-import { OpponentFaceCustomizer, type OpponentFaceSource } from './OpponentFaceCustomizer';
+import {
+  OpponentFaceCustomizer,
+  type OpponentFaceSource,
+  type PortraitAdjust,
+} from './OpponentFaceCustomizer';
 import { OPPONENT_FACE_REAPPLY_ON_ANIM } from './OpponentFaceConfig';
 import type { FaceSide } from './OpponentFaceConfig';
 import type { InjuryRegion } from './OpponentFaceInjuryConfig';
@@ -27,6 +32,11 @@ import {
 const TARGET_HEIGHT = 1.75;
 const FACE_PLAYER_Y = 0;
 const PUNCH_ANIMS = new Set<OpponentAnimKey>(['jab', 'cross', 'hook', 'uppercut']);
+/** Não reinicia a reação de hit se outra acabou de começar (evita "tremida" em spam). */
+const REACTION_RESTART_MIN_SEC = 0.22;
+/** Limites do timeScale dos golpes (fora disso o clipe fica robótico). */
+const PUNCH_TIMESCALE_MIN = 0.85;
+const PUNCH_TIMESCALE_MAX = 2.4;
 
 export interface OpponentLoadConfig {
   face?: OpponentFaceSource;
@@ -190,7 +200,12 @@ export class OpponentModel {
       const cfg = PUNCH_CONFIGS[punch.type];
       const combatDuration = cfg.windUp * 1.1 + cfg.active + cfg.recovery;
       const clipDuration = this.actions.get(animKey)?.getClip().duration ?? 1;
-      this.playOneShot(animKey, clipDuration / combatDuration);
+      const timeScale = THREE.MathUtils.clamp(
+        clipDuration / combatDuration,
+        PUNCH_TIMESCALE_MIN,
+        PUNCH_TIMESCALE_MAX,
+      );
+      this.playOneShot(animKey, timeScale, ANIM_FADES.punchIn);
     }
 
     this.mixer!.update(dt);
@@ -202,7 +217,12 @@ export class OpponentModel {
     if (!this.hitReactionPlaying || !this.currentAnim) return false;
 
     const action = this.actions.get(this.currentAnim);
-    if (!action || action.time >= action.getClip().duration - 0.04) {
+    // Libera a postura antes do fim para o crossfade acontecer ainda em movimento.
+    // action.time está em segundos do clipe; converte o blend real via timeScale.
+    const exitAt = action
+      ? action.getClip().duration - ANIM_EXIT_BLEND_SEC * Math.abs(action.timeScale)
+      : 0;
+    if (!action || action.time >= exitAt) {
       this.hitReactionPlaying = false;
       return false;
     }
@@ -215,44 +235,47 @@ export class OpponentModel {
   private updateStanceAnimation(ai: OpponentAI): void {
     if (this.isPunchClipStillPlaying()) return;
 
+    // Saindo de um golpe: fade de retorno mais longo (recovery natural).
+    const leavingPunch = this.currentAnim !== null && PUNCH_ANIMS.has(this.currentAnim);
+    const fade = leavingPunch ? ANIM_FADES.punchOut : ANIM_FADES.stance;
+
     if (ai.isGuarding()) {
-      this.fadeTo('guard');
+      this.fadeTo('guard', fade);
       return;
     }
 
     if (ai.state === 'Tired') {
-      this.fadeTo('idleTired');
+      this.fadeTo('idleTired', fade);
       return;
     }
 
     if (ai.state === 'Approach' || ai.state === 'Counter') {
-      this.fadeTo('walking');
+      this.fadeTo('walking', fade);
       return;
     }
 
-    if (ai.state === 'Pressure') {
-      this.fadeTo('guard');
-      return;
-    }
-
-    this.fadeTo('guard');
+    this.fadeTo('guard', fade);
   }
 
   private isPunchClipStillPlaying(): boolean {
     if (!this.currentAnim || !PUNCH_ANIMS.has(this.currentAnim)) return false;
     const action = this.actions.get(this.currentAnim);
     if (!action) return false;
-    return action.isRunning() && action.time < action.getClip().duration - 0.05;
+    // Libera antes do fim: o crossfade para a guarda acontece durante o recovery,
+    // sem congelar no último frame (clampWhenFinished).
+    // action.time está em segundos do clipe; converte o blend real via timeScale.
+    const exitAt =
+      action.getClip().duration - ANIM_EXIT_BLEND_SEC * Math.abs(action.timeScale);
+    return action.isRunning() && action.time < exitAt;
   }
 
-  private fadeTo(key: OpponentAnimKey, fade = ANIM_FADE_SEC): void {
+  private fadeTo(key: OpponentAnimKey, fade: number = ANIM_FADES.stance): void {
     if (this.currentAnim === key) return;
 
     const next = this.actions.get(key);
     if (!next) return;
 
     const prev = this.currentAnim ? this.actions.get(this.currentAnim) : null;
-    prev?.fadeOut(fade);
 
     next.reset();
     next.setEffectiveWeight(1);
@@ -262,9 +285,22 @@ export class OpponentModel {
       next.setLoop(THREE.LoopOnce, 1);
       next.clampWhenFinished = true;
     }
-    next.fadeIn(fade).play();
+
+    if (prev && prev !== next && LOOPING_ANIMS.has(key) && this.isLoopingAnim(this.currentAnim)) {
+      // Loop → loop: crossfade com warp sincroniza a fase dos passos.
+      next.play();
+      prev.crossFadeTo(next, fade, true);
+    } else {
+      prev?.fadeOut(fade);
+      next.fadeIn(fade).play();
+    }
+
     this.currentAnim = key;
     this.syncFaceAfterAnim(key);
+  }
+
+  private isLoopingAnim(key: OpponentAnimKey | null): boolean {
+    return key !== null && LOOPING_ANIMS.has(key);
   }
 
   private syncFaceAfterAnim(key: OpponentAnimKey): void {
@@ -272,29 +308,33 @@ export class OpponentModel {
     void this.faceCustomizer.reapplyAfterAnimationChange(key);
   }
 
-  private playOneShot(key: OpponentAnimKey, timeScale = 1): void {
+  private playOneShot(
+    key: OpponentAnimKey,
+    timeScale = 1,
+    fade: number = ANIM_FADES.stance,
+  ): void {
     const action = this.actions.get(key);
     if (!action) return;
 
     const prev = this.currentAnim ? this.actions.get(this.currentAnim) : null;
-    prev?.fadeOut(ANIM_FADE_SEC);
+    prev?.fadeOut(fade);
 
     action.reset();
     action.setLoop(THREE.LoopOnce, 1);
     action.clampWhenFinished = true;
     action.timeScale = timeScale;
     action.setEffectiveWeight(1);
-    action.fadeIn(ANIM_FADE_SEC).play();
+    action.fadeIn(fade).play();
     this.currentAnim = key;
     this.syncFaceAfterAnim(key);
   }
 
   playVictory(): void {
-    this.playOneShot('victory', 1);
+    this.playOneShot('victory', 1, ANIM_FADES.finish);
   }
 
   playDefeat(): void {
-    this.playOneShot('death', 1);
+    this.playOneShot('death', 1, ANIM_FADES.finish);
   }
 
   resetForMatch(): void {
@@ -327,6 +367,10 @@ export class OpponentModel {
     await this.faceCustomizer.applySource(source);
   }
 
+  async adjustFacePortrait(adjust: Partial<PortraitAdjust>): Promise<void> {
+    await this.faceCustomizer.setPortraitAdjust(adjust);
+  }
+
   /** Reaplica a fonte de rosto atual (útil após hot-reload de assets). */
   async refreshFace(): Promise<void> {
     await this.faceCustomizer.applySource(this.faceCustomizer.source);
@@ -336,7 +380,7 @@ export class OpponentModel {
     // Transições em updateStanceAnimation().
   }
 
-  applyHitFlash(): void {
+  applyHitFlash(zone: 'head' | 'body' = 'head'): void {
     for (const mesh of this.meshes) {
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       for (const mat of mats) {
@@ -347,9 +391,18 @@ export class OpponentModel {
       }
     }
 
+    // Se uma reação acabou de começar, não reinicia (evita "tremida" em spam de socos).
+    if (this.hitReactionPlaying && this.currentAnim) {
+      const action = this.actions.get(this.currentAnim);
+      if (action && action.time < REACTION_RESTART_MIN_SEC) return;
+    }
+
+    const key: OpponentAnimKey = zone === 'body' ? 'hitBody' : 'hitHead';
+    // Variação sutil de velocidade — reações idênticas parecem robóticas.
+    const timeScale = 1.05 + Math.random() * 0.25;
     this.hitReactionPlaying = true;
-    this.playOneShot('hitHead', 1.15);
-    void this.faceCustomizer.reapplyAfterAnimationChange('hitHead');
+    this.playOneShot(key, timeScale, ANIM_FADES.reactionIn);
+    void this.faceCustomizer.reapplyAfterAnimationChange(key);
   }
 
   /**

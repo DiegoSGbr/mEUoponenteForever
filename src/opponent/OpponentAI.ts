@@ -29,6 +29,13 @@ export class OpponentAI {
     PunchType.Jab,
   ];
 
+  /** Velocidade atual suavizada (aceleração finita — sem arrancada teleportada). */
+  private currentSpeed = 0;
+  /** Fase do movimento lateral (footwork de boxe: circular, não só linha reta). */
+  private strafePhase = Math.random() * Math.PI * 2;
+  private strafeDir = Math.random() > 0.5 ? 1 : -1;
+  private strafeSwapTimer = 3 + Math.random() * 3;
+
   update(
     dt: number,
     playerPos: THREE.Vector3,
@@ -71,22 +78,22 @@ export class OpponentAI {
     if (dir.length() < 0.01) return;
     dir.normalize();
 
-    let speed = 0;
+    let targetSpeed = 0;
     switch (this.state) {
       case 'Approach':
-        speed = 1.4;
+        targetSpeed = 1.4;
         break;
       case 'Pressure':
-        speed = dist > 1.8 ? 1.8 : 0.6;
+        targetSpeed = dist > 1.8 ? 1.8 : 0.6;
         break;
       case 'Defend':
-        speed = dist < 1.5 ? -0.8 : 0.2;
+        targetSpeed = dist < 1.5 ? -0.8 : 0.2;
         break;
       case 'Counter':
-        speed = 1.2;
+        targetSpeed = 1.2;
         break;
       case 'Tired':
-        speed = 0.3;
+        targetSpeed = 0.3;
         break;
     }
 
@@ -94,7 +101,25 @@ export class OpponentAI {
       this.guardActive = true;
     }
 
-    this.position.addScaledVector(dir, speed * dt);
+    // Aceleração finita: sem mudanças bruscas de velocidade entre estados.
+    const accel = 1 - Math.exp(-5 * dt);
+    this.currentSpeed += (targetSpeed - this.currentSpeed) * accel;
+    this.position.addScaledVector(dir, this.currentSpeed * dt);
+
+    // Footwork lateral: circula o jogador quando está no range de luta
+    // (nunca durante um golpe — os pés "plantam" no impacto).
+    this.strafeSwapTimer -= dt;
+    if (this.strafeSwapTimer <= 0) {
+      this.strafeDir *= -1;
+      this.strafeSwapTimer = 2.5 + Math.random() * 3;
+    }
+    if (!this.activePunch && dist < 2.6 && this.state !== 'Tired') {
+      this.strafePhase += dt * 1.6;
+      const lateral = new THREE.Vector3(-dir.z, 0, dir.x);
+      const strafeSpeed = 0.35 * this.strafeDir * (0.6 + 0.4 * Math.sin(this.strafePhase));
+      this.position.addScaledVector(lateral, strafeSpeed * dt);
+    }
+
     clampOpponentToRing(this.position);
   }
 

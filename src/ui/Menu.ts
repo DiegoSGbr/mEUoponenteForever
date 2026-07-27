@@ -1,3 +1,5 @@
+import { FACE_IMAGE_GUIDELINES, validateFaceImage } from '../opponent/FaceImageValidator';
+
 export interface MenuCallbacks {
   onPlay: () => void;
   onTutorial: () => void;
@@ -7,12 +9,22 @@ export interface MenuCallbacks {
   onRestart: () => void;
   onMainMenu: () => void;
   onVolumeChange: (v: number) => void;
+  /** Retrato validado — o Game aplica no oponente. */
+  onFaceImage: (imageUrl: string) => Promise<void> | void;
+  /** Volta ao rosto padrão Mixamo. */
+  onFaceReset: () => void;
+  /** Ajuste fino do encaixe (UV offset + escala). */
+  onFaceAdjust: (adjust: { du: number; dv: number; scale: number }) => void;
 }
 
 export class Menu {
   private readonly root: HTMLElement;
   private volume = 0.7;
   callbacks: MenuCallbacks;
+  /** Object URL do retrato validado aguardando "Aplicar". */
+  private pendingFaceUrl: string | null = null;
+  /** Object URL atualmente aplicado no oponente (não pode ser revogado). */
+  private appliedFaceUrl: string | null = null;
 
   constructor(root: HTMLElement, callbacks: MenuCallbacks) {
     this.root = root;
@@ -52,6 +64,38 @@ export class Menu {
             <label>Volume</label>
             <input type="range" id="volume-slider" min="0" max="100" value="${Math.round(this.volume * 100)}" />
             <span id="volume-value">${Math.round(this.volume * 100)}%</span>
+          </div>
+          <div class="face-upload">
+            <h2>Rosto do oponente</h2>
+            <p class="face-upload-hint">Envie uma foto para colocar no rosto do oponente (experimental):</p>
+            <ul class="face-guidelines">
+              ${FACE_IMAGE_GUIDELINES.map((g) => `<li>${g}</li>`).join('')}
+            </ul>
+            <input type="file" id="face-file-input" accept="image/png,image/jpeg,image/webp" hidden />
+            <div class="face-upload-row">
+              <button data-action="face-pick">Escolher imagem…</button>
+              <button data-action="face-reset">Restaurar padrão</button>
+            </div>
+            <div id="face-preview-wrap" class="face-preview-wrap hidden">
+              <img id="face-preview" alt="Prévia do rosto enviado" />
+              <button class="primary" data-action="face-apply">Aplicar no oponente</button>
+            </div>
+            <div id="face-adjust" class="face-adjust hidden">
+              <p class="face-upload-hint">Ajuste fino (veja o oponente ao fundo):</p>
+              <div class="settings-row">
+                <label>Horizontal</label>
+                <input type="range" id="face-adjust-du" min="-30" max="30" value="0" />
+              </div>
+              <div class="settings-row">
+                <label>Vertical</label>
+                <input type="range" id="face-adjust-dv" min="-30" max="30" value="0" />
+              </div>
+              <div class="settings-row">
+                <label>Tamanho</label>
+                <input type="range" id="face-adjust-scale" min="80" max="125" value="100" />
+              </div>
+            </div>
+            <p id="face-status" class="face-status" aria-live="polite"></p>
           </div>
           <div class="menu-buttons">
             <button data-action="back-settings">Voltar</button>
@@ -124,8 +168,44 @@ export class Menu {
         case 'main-menu':
           this.callbacks.onMainMenu();
           break;
+        case 'face-pick':
+          (wrap.querySelector('#face-file-input') as HTMLInputElement)?.click();
+          break;
+        case 'face-apply':
+          void this.applyPendingFace();
+          break;
+        case 'face-reset':
+          this.resetFace();
+          break;
       }
     });
+
+    const faceInput = wrap.querySelector('#face-file-input') as HTMLInputElement;
+    faceInput?.addEventListener('change', () => {
+      const file = faceInput.files?.[0];
+      faceInput.value = '';
+      if (file) void this.handleFaceFile(file);
+    });
+
+    // Sliders de ajuste fino — debounce curto para não recompor a cada pixel.
+    let adjustTimer: number | undefined;
+    const emitAdjust = () => {
+      window.clearTimeout(adjustTimer);
+      adjustTimer = window.setTimeout(() => {
+        const du = wrap.querySelector('#face-adjust-du') as HTMLInputElement | null;
+        const dv = wrap.querySelector('#face-adjust-dv') as HTMLInputElement | null;
+        const sc = wrap.querySelector('#face-adjust-scale') as HTMLInputElement | null;
+        if (!du || !dv || !sc) return;
+        this.callbacks.onFaceAdjust({
+          du: parseInt(du.value, 10) / 1000, // ±30 → ±0.03 UV
+          dv: parseInt(dv.value, 10) / 1000,
+          scale: parseInt(sc.value, 10) / 100, // 80–125 → 0.8–1.25
+        });
+      }, 120);
+    };
+    for (const id of ['#face-adjust-du', '#face-adjust-dv', '#face-adjust-scale']) {
+      (wrap.querySelector(id) as HTMLInputElement | null)?.addEventListener('input', emitAdjust);
+    }
 
     const slider = wrap.querySelector('#volume-slider') as HTMLInputElement;
     slider?.addEventListener('input', () => {
@@ -139,6 +219,89 @@ export class Menu {
 
   private menuWrap(): HTMLElement | null {
     return this.root.querySelector('#menu-wrap');
+  }
+
+  // ---------- Upload de rosto ----------
+
+  private async handleFaceFile(file: File): Promise<void> {
+    this.setFaceStatus('Validando imagem…', 'info');
+
+    const result = await validateFaceImage(file);
+    if (!result.ok) {
+      this.hideFacePreview();
+      this.setFaceStatus(result.errors.join(' '), 'error');
+      return;
+    }
+
+    if (this.pendingFaceUrl && this.pendingFaceUrl !== this.appliedFaceUrl) {
+      URL.revokeObjectURL(this.pendingFaceUrl);
+    }
+    this.pendingFaceUrl = URL.createObjectURL(file);
+
+    const wrap = this.menuWrap();
+    const img = wrap?.querySelector('#face-preview') as HTMLImageElement | null;
+    if (img) img.src = this.pendingFaceUrl;
+    wrap?.querySelector('#face-preview-wrap')?.classList.remove('hidden');
+
+    this.setFaceStatus(
+      `Imagem válida (${result.width}×${result.height} px). Confira a prévia e clique em Aplicar.`,
+      'ok',
+    );
+  }
+
+  private async applyPendingFace(): Promise<void> {
+    if (!this.pendingFaceUrl) {
+      this.setFaceStatus('Escolha uma imagem primeiro.', 'error');
+      return;
+    }
+
+    this.setFaceStatus('Aplicando no oponente…', 'info');
+    try {
+      await this.callbacks.onFaceImage(this.pendingFaceUrl);
+      if (this.appliedFaceUrl && this.appliedFaceUrl !== this.pendingFaceUrl) {
+        URL.revokeObjectURL(this.appliedFaceUrl);
+      }
+      this.appliedFaceUrl = this.pendingFaceUrl;
+      this.menuWrap()?.querySelector('#face-adjust')?.classList.remove('hidden');
+      this.setFaceStatus('Rosto aplicado! Ajuste o encaixe abaixo se necessário.', 'ok');
+    } catch (error) {
+      console.error('[Menu] Falha ao aplicar rosto:', error);
+      this.setFaceStatus('Falha ao aplicar a imagem. Tente outra foto.', 'error');
+    }
+  }
+
+  private resetFace(): void {
+    this.callbacks.onFaceReset();
+    if (this.pendingFaceUrl && this.pendingFaceUrl !== this.appliedFaceUrl) {
+      URL.revokeObjectURL(this.pendingFaceUrl);
+    }
+    if (this.appliedFaceUrl) URL.revokeObjectURL(this.appliedFaceUrl);
+    this.pendingFaceUrl = null;
+    this.appliedFaceUrl = null;
+    this.hideFacePreview();
+    const wrap = this.menuWrap();
+    wrap?.querySelector('#face-adjust')?.classList.add('hidden');
+    for (const [id, value] of [
+      ['#face-adjust-du', '0'],
+      ['#face-adjust-dv', '0'],
+      ['#face-adjust-scale', '100'],
+    ] as const) {
+      const input = wrap?.querySelector(id) as HTMLInputElement | null;
+      if (input) input.value = value;
+    }
+    this.callbacks.onFaceAdjust({ du: 0, dv: 0, scale: 1 });
+    this.setFaceStatus('Rosto padrão restaurado.', 'ok');
+  }
+
+  private hideFacePreview(): void {
+    this.menuWrap()?.querySelector('#face-preview-wrap')?.classList.add('hidden');
+  }
+
+  private setFaceStatus(text: string, kind: 'info' | 'ok' | 'error'): void {
+    const status = this.menuWrap()?.querySelector('#face-status') as HTMLElement | null;
+    if (!status) return;
+    status.textContent = text;
+    status.dataset.kind = kind;
   }
 
   showScreen(which: 'main' | 'settings' | 'credits'): void {

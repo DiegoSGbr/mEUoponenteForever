@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { OpponentModel, type OpponentLoadConfig } from '../opponent/OpponentModel';
-import type { OpponentFaceSource } from '../opponent/OpponentFaceCustomizer';
+import type {
+  OpponentFaceSource,
+  PortraitAdjust,
+} from '../opponent/OpponentFaceCustomizer';
 import type { InjuryRegion } from '../opponent/OpponentFaceInjuryConfig';
 import type { OpponentAI } from '../opponent/OpponentAI';
 import { OPPONENT_SPAWN_Z, RING_HALF } from './ringBounds';
@@ -72,11 +75,19 @@ export class RingScene {
   }
 
   async setOpponentFace(source: OpponentFaceSource): Promise<void> {
+    // Se o modelo ainda está carregando, espera — o rosto é aplicado assim que possível.
+    if (this.modelLoadPromise) {
+      await this.modelLoadPromise.catch(() => {});
+    }
     await this.opponentModel?.setFaceSource(source);
   }
 
   async refreshOpponentFace(): Promise<void> {
     await this.opponentModel?.refreshFace();
+  }
+
+  async adjustOpponentFacePortrait(adjust: Partial<PortraitAdjust>): Promise<void> {
+    await this.opponentModel?.adjustFacePortrait(adjust);
   }
 
   playOpponentVictory(): void {
@@ -102,7 +113,8 @@ export class RingScene {
     const centerX = (box.min.x + box.max.x) * 0.5;
     const delta = punchWorldPos.x - centerX;
     let region: InjuryRegion;
-    if (Math.abs(delta) < 0.05) {
+    if (Math.abs(delta) < 0.12) {
+      // Faixa central mais larga — jab/cross de frente atinge nariz/boca.
       region = 'noseMouth';
     } else if (delta < 0) {
       region = 'leftEye';
@@ -256,6 +268,26 @@ export class RingScene {
   setOpponentPosition(x: number, z: number): void {
     this.opponentGroup.position.x = x;
     this.opponentGroup.position.z = z;
+  }
+
+  /**
+   * Gira o oponente suavemente para encarar o jogador (footwork de boxe:
+   * o lutador nunca dá as costas). Damping exponencial estável em qualquer FPS.
+   */
+  updateOpponentFacing(playerPos: THREE.Vector3, dt: number): void {
+    const dx = playerPos.x - this.opponentGroup.position.x;
+    const dz = playerPos.z - this.opponentGroup.position.z;
+    if (dx * dx + dz * dz < 0.04) return;
+
+    const targetYaw = Math.atan2(dx, dz);
+    const current = this.opponentGroup.rotation.y;
+    let delta = targetYaw - current;
+    while (delta > Math.PI) delta -= Math.PI * 2;
+    while (delta < -Math.PI) delta += Math.PI * 2;
+
+    // ~8 rad/s de resposta — rápido o bastante para acompanhar strafe, sem giro seco.
+    const t = 1 - Math.exp(-8 * Math.max(0, dt));
+    this.opponentGroup.rotation.y = current + delta * t;
   }
 
   setOpponentGuardVisual(guarding: boolean): void {

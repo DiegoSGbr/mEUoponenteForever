@@ -10,3 +10,8 @@ if (!canvas || !uiRoot) {
 
 const game = new Game(canvas, uiRoot);
 game.init();
+
+// Handle de debug apenas em dev (testes automatizados / console).
+if (import.meta.env.DEV) {
+  (window as unknown as Record<string, unknown>).__game = game;
+}

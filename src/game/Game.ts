@@ -79,6 +79,14 @@ export class Game {
       onRestart: () => this.startMatch(this.stateMachine.state === 'tutorial'),
       onMainMenu: () => this.goToMenu(),
       onVolumeChange: (v) => this.audio.setVolume(v),
+      onFaceImage: (imageUrl) =>
+        this.ring.setOpponentFace({ kind: 'portrait', imageUrl }),
+      onFaceReset: () => {
+        void this.ring.setOpponentFace({ kind: 'mixamo-default' });
+      },
+      onFaceAdjust: (adjust) => {
+        void this.ring.adjustOpponentFacePortrait(adjust);
+      },
     };
 
     this.menu = new Menu(this.uiRoot, callbacks);
@@ -313,6 +321,7 @@ export class Game {
     const playerAggressive = !!this.rig.activePunch || this.player.keys.has('q') || this.player.keys.has('e');
     this.ai.update(dt, this.player.position, playerAggressive, this.stamina.isExhausted());
     this.ring.setOpponentPosition(this.ai.position.x, this.ai.position.z);
+    this.ring.updateOpponentFacing(this.player.position, dt);
     this.ring.setOpponentGuardVisual(this.ai.isGuarding());
     this.ring.updateOpponentAnimation(dt, this.ai, this.stateMachine.isPlaying());
     this.ring.updateOpponentHitbox();

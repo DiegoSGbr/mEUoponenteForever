@@ -95,5 +95,18 @@ export const FACE_SKIN_UV_GATE: FaceUvBlob = {
   ry: 0.1,
 };
 
+/**
+ * Elipse onde o retrato enviado pelo usuário é composto no atlas
+ * (testa→queixo / têmpora→têmpora, sem invadir cabelo/pescoço).
+ */
+export const FACE_PORTRAIT_UV_ELLIPSE: FaceUvBlob = {
+  u: 0.747,
+  v: 0.158,
+  // Estreita: fora disso ficam têmporas/costeletas do modelo — se a oval
+  // for larga demais, o FUNDO da foto vaza nas laterais do rosto.
+  rx: 0.07,
+  ry: 0.098,
+};
+
 /** Dano acumulado para chegar a severity 1.0 num lado. */
 export const FACE_DAMAGE_FULL_THRESHOLD = 48;

@@ -64,4 +64,26 @@ export const ONE_SHOT_ANIMS = new Set<OpponentAnimKey>([
   'death',
 ]);
 
-export const ANIM_FADE_SEC = 0.12;
+/**
+ * Fades por categoria (padrão de jogos de luta):
+ * - Golpe entra rápido (snap) e sai suave de volta à guarda.
+ * - Locomoção/postura cruzam devagar (sem "pulo" de pose).
+ * - Reação de hit entra quase instantânea.
+ */
+export const ANIM_FADES = {
+  punchIn: 0.07,
+  punchOut: 0.24,
+  stance: 0.3,
+  reactionIn: 0.05,
+  reactionOut: 0.22,
+  finish: 0.35,
+} as const;
+
+/**
+ * Começa a voltar para a postura N segundos antes do fim do clipe one-shot —
+ * evita o congelamento no último frame (clampWhenFinished).
+ */
+export const ANIM_EXIT_BLEND_SEC = 0.18;
+
+/** Compat: fade genérico usado onde não há categoria específica. */
+export const ANIM_FADE_SEC = ANIM_FADES.stance;

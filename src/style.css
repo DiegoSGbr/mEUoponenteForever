@@ -262,6 +262,116 @@ body,
   flex: 1;
 }
 
+/* ---------- Upload de rosto do oponente ---------- */
+
+.face-upload {
+  margin: 1.25rem 0 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  max-width: 340px;
+  text-align: left;
+}
+
+.face-upload h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.35rem;
+}
+
+.face-upload-hint {
+  font-size: 0.85rem;
+  color: #bbb;
+  margin: 0 0 0.4rem;
+}
+
+.face-guidelines {
+  font-size: 0.78rem;
+  color: #999;
+  margin: 0 0 0.75rem;
+  padding-left: 1.1rem;
+  line-height: 1.5;
+}
+
+.face-upload-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.face-upload-row button {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.face-upload-row button:hover {
+  background: rgba(220, 50, 50, 0.35);
+}
+
+.face-preview-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.face-preview-wrap img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+}
+
+.face-preview-wrap button {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  border: 1px solid rgba(255, 100, 100, 0.4);
+  border-radius: 8px;
+  background: rgba(200, 40, 40, 0.5);
+  color: #fff;
+  cursor: pointer;
+}
+
+.face-adjust {
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.face-adjust .settings-row {
+  margin: 0.35rem 0;
+}
+
+.face-adjust label {
+  font-size: 0.8rem;
+  color: #bbb;
+  min-width: 72px;
+}
+
+.face-status {
+  min-height: 1.1rem;
+  font-size: 0.8rem;
+  margin: 0.6rem 0 0;
+}
+
+.face-status[data-kind='ok'] {
+  color: #7fce7f;
+}
+
+.face-status[data-kind='error'] {
+  color: #e07070;
+}
+
+.face-status[data-kind='info'] {
+  color: #c9a227;
+}
+
 #crosshair {
   position: absolute;
   left: 50%;
