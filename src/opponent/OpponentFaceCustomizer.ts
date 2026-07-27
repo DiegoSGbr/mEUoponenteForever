@@ -178,6 +178,43 @@ export class OpponentFaceCustomizer {
     }
   }
 
+  /**
+   * Desenha o recorte do rosto (atual: composto ou padrão) num canvas de preview.
+   * Retorna false se ainda não há textura disponível.
+   */
+  renderFacePreview(target: HTMLCanvasElement): boolean {
+    const source = (this.pendingTexture?.image ?? this.slots[0]?.originalMap?.image) as
+      | CanvasImageSource
+      | undefined;
+    if (!source) return false;
+
+    const srcW =
+      (source as HTMLImageElement).naturalWidth ||
+      (source as HTMLCanvasElement | ImageBitmap).width ||
+      0;
+    const srcH =
+      (source as HTMLImageElement).naturalHeight ||
+      (source as HTMLCanvasElement | ImageBitmap).height ||
+      0;
+    if (!srcW || !srcH) return false;
+
+    // Janela quadrada em volta da ilha do rosto (com folga para orelhas/cabelo).
+    const e = FACE_PORTRAIT_UV_ELLIPSE;
+    const half = 0.125;
+    const sx = (e.u - half) * srcW;
+    const sy = (e.v - half) * srcH;
+    const sw = half * 2 * srcW;
+    const sh = half * 2 * srcH;
+
+    const ctx = target.getContext('2d');
+    if (!ctx) return false;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.clearRect(0, 0, target.width, target.height);
+    ctx.drawImage(source, sx, sy, sw, sh, 0, 0, target.width, target.height);
+    return true;
+  }
+
   private async ensureInjuryMaps(): Promise<void> {
     if (this.injuryMaps) return;
     if (this.mapsPromise) return this.mapsPromise;
@@ -240,11 +277,16 @@ export class OpponentFaceCustomizer {
         throw new Error('Atlas base indisponível para composição.');
       }
 
-      const size = 1024;
+      // Atlas composto em 2048²: a ilha do rosto ocupa ~14% da largura do atlas,
+      // então em 1024 sobravam só ~150 px para o rosto inteiro (foto desfocada).
+      // Em 2048 a densidade de texels dobra e a foto mantém a nitidez.
+      const size = 2048;
       const canvas = document.createElement('canvas');
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext('2d')!;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
 
       // 1. Atlas original por baixo (roupa/pele/orelhas continuam intactos).
       ctx.drawImage(baseImage, 0, 0, size, size);
@@ -260,6 +302,8 @@ export class OpponentFaceCustomizer {
       layer.width = size;
       layer.height = size;
       const lctx = layer.getContext('2d')!;
+      lctx.imageSmoothingEnabled = true;
+      lctx.imageSmoothingQuality = 'high';
 
       // Encaixe ancorado nos OLHOS: a linha dos olhos da foto é alinhada com a
       // linha dos olhos do modelo no atlas, e a escala é definida pela distância
@@ -322,7 +366,12 @@ export class OpponentFaceCustomizer {
           const ratio = THREE.MathUtils.clamp(b / Math.max(photoSkin[i]!, 1), 0.7, 1.4);
           return 1 + (ratio - 1) * strength;
         });
-        const img = lctx.getImageData(0, 0, size, size);
+        // Só o bounding box da elipse (fora dele a camada é transparente).
+        const bx = Math.max(0, Math.floor(cx - rx * 1.15));
+        const by = Math.max(0, Math.floor(cy - ry * 1.15));
+        const bw = Math.min(size - bx, Math.ceil(rx * 2.3));
+        const bh = Math.min(size - by, Math.ceil(ry * 2.3));
+        const img = lctx.getImageData(bx, by, bw, bh);
         const d = img.data;
         for (let i = 0; i < d.length; i += 4) {
           if (d[i + 3] === 0) continue;
@@ -330,7 +379,7 @@ export class OpponentFaceCustomizer {
           d[i + 1] = Math.min(255, d[i + 1]! * factor[1]!);
           d[i + 2] = Math.min(255, d[i + 2]! * factor[2]!);
         }
-        lctx.putImageData(img, 0, 0);
+        lctx.putImageData(img, bx, by);
       }
 
       ctx.drawImage(layer, 0, 0);
@@ -338,6 +387,10 @@ export class OpponentFaceCustomizer {
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.flipY = false;
+      // Nitidez em ângulos rasos (three limita ao máximo suportado pela GPU).
+      texture.anisotropy = 16;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.magFilter = THREE.LinearFilter;
       texture.needsUpdate = true;
 
       this.disposePending();
@@ -345,7 +398,7 @@ export class OpponentFaceCustomizer {
       this.applyAlbedoToSlots(texture);
       // Ferimentos continuam funcionando: mesmo espaço UV da ilha do rosto.
       this.patchAllMaterials();
-      console.info('[OpponentFaceCustomizer] Retrato composto no atlas do rosto.');
+      console.info('[OpponentFaceCustomizer] Retrato composto no atlas do rosto (2048).');
     } catch (error) {
       console.error('[OpponentFaceCustomizer] Falha ao compor retrato:', error);
       // Fallback: aplica a imagem crua como atlas (comportamento antigo).

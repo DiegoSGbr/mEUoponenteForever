@@ -84,9 +84,8 @@ export class Game {
       onFaceReset: () => {
         void this.ring.setOpponentFace({ kind: 'mixamo-default' });
       },
-      onFaceAdjust: (adjust) => {
-        void this.ring.adjustOpponentFacePortrait(adjust);
-      },
+      onFaceAdjust: (adjust) => this.ring.adjustOpponentFacePortrait(adjust),
+      onFacePreview: (canvas) => this.ring.renderOpponentFacePreview(canvas),
     };
 
     this.menu = new Menu(this.uiRoot, callbacks);

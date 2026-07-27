@@ -90,6 +90,14 @@ export class RingScene {
     await this.opponentModel?.adjustFacePortrait(adjust);
   }
 
+  /** Desenha o rosto atual (padrão ou composto) num canvas de preview do menu. */
+  async renderOpponentFacePreview(target: HTMLCanvasElement): Promise<boolean> {
+    if (this.modelLoadPromise) {
+      await this.modelLoadPromise.catch(() => {});
+    }
+    return this.opponentModel?.renderFacePreview(target) ?? false;
+  }
+
   playOpponentVictory(): void {
     this.opponentModel?.playVictory();
   }

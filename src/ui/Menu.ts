@@ -13,8 +13,10 @@ export interface MenuCallbacks {
   onFaceImage: (imageUrl: string) => Promise<void> | void;
   /** Volta ao rosto padrão Mixamo. */
   onFaceReset: () => void;
-  /** Ajuste fino do encaixe (UV offset + escala). */
-  onFaceAdjust: (adjust: { du: number; dv: number; scale: number }) => void;
+  /** Ajuste fino do encaixe (UV offset + escala). Aguardável para atualizar o preview. */
+  onFaceAdjust: (adjust: { du: number; dv: number; scale: number }) => Promise<void> | void;
+  /** Desenha o rosto atual do oponente (composto ou padrão) no canvas dado. */
+  onFacePreview: (canvas: HTMLCanvasElement) => Promise<boolean> | boolean;
 }
 
 export class Menu {
@@ -81,7 +83,8 @@ export class Menu {
               <button class="primary" data-action="face-apply">Aplicar no oponente</button>
             </div>
             <div id="face-adjust" class="face-adjust hidden">
-              <p class="face-upload-hint">Ajuste fino (veja o oponente ao fundo):</p>
+              <p class="face-upload-hint">Ajuste fino — preview do rosto no oponente:</p>
+              <canvas id="face-adjust-preview" class="face-adjust-preview" width="192" height="192"></canvas>
               <div class="settings-row">
                 <label>Horizontal</label>
                 <input type="range" id="face-adjust-du" min="-30" max="30" value="0" />
@@ -191,16 +194,17 @@ export class Menu {
     let adjustTimer: number | undefined;
     const emitAdjust = () => {
       window.clearTimeout(adjustTimer);
-      adjustTimer = window.setTimeout(() => {
+      adjustTimer = window.setTimeout(async () => {
         const du = wrap.querySelector('#face-adjust-du') as HTMLInputElement | null;
         const dv = wrap.querySelector('#face-adjust-dv') as HTMLInputElement | null;
         const sc = wrap.querySelector('#face-adjust-scale') as HTMLInputElement | null;
         if (!du || !dv || !sc) return;
-        this.callbacks.onFaceAdjust({
+        await this.callbacks.onFaceAdjust({
           du: parseInt(du.value, 10) / 1000, // ±30 → ±0.03 UV
           dv: parseInt(dv.value, 10) / 1000,
           scale: parseInt(sc.value, 10) / 100, // 80–125 → 0.8–1.25
         });
+        await this.refreshFacePreview();
       }, 120);
     };
     for (const id of ['#face-adjust-du', '#face-adjust-dv', '#face-adjust-scale']) {
@@ -263,6 +267,7 @@ export class Menu {
       }
       this.appliedFaceUrl = this.pendingFaceUrl;
       this.menuWrap()?.querySelector('#face-adjust')?.classList.remove('hidden');
+      await this.refreshFacePreview();
       this.setFaceStatus('Rosto aplicado! Ajuste o encaixe abaixo se necessário.', 'ok');
     } catch (error) {
       console.error('[Menu] Falha ao aplicar rosto:', error);
@@ -295,6 +300,19 @@ export class Menu {
 
   private hideFacePreview(): void {
     this.menuWrap()?.querySelector('#face-preview-wrap')?.classList.add('hidden');
+  }
+
+  /** Redesenha o recorte do rosto atual no canvas de preview do ajuste fino. */
+  private async refreshFacePreview(): Promise<void> {
+    const canvas = this.menuWrap()?.querySelector(
+      '#face-adjust-preview',
+    ) as HTMLCanvasElement | null;
+    if (!canvas) return;
+    try {
+      await this.callbacks.onFacePreview(canvas);
+    } catch (error) {
+      console.warn('[Menu] Falha ao desenhar preview do rosto:', error);
+    }
   }
 
   private setFaceStatus(text: string, kind: 'info' | 'ok' | 'error'): void {

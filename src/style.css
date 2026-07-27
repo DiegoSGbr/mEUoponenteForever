@@ -38,6 +38,12 @@ body,
   border-radius: 12px;
   padding: 1.5rem 2rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  /* Painéis altos (ex.: Configurações com upload de rosto) rolam por dentro. */
+  max-height: min(88vh, 100%);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
 }
 
 .menu-screen {
@@ -342,6 +348,16 @@ body,
   margin-top: 0.75rem;
   padding-top: 0.5rem;
   border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.face-adjust-preview {
+  display: block;
+  margin: 0.4rem auto 0.6rem;
+  width: 160px;
+  height: 160px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: #15121c;
 }
 
 .face-adjust .settings-row {

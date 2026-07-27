@@ -371,6 +371,10 @@ export class OpponentModel {
     await this.faceCustomizer.setPortraitAdjust(adjust);
   }
 
+  renderFacePreview(target: HTMLCanvasElement): boolean {
+    return this.faceCustomizer.renderFacePreview(target);
+  }
+
   /** Reaplica a fonte de rosto atual (útil após hot-reload de assets). */
   async refreshFace(): Promise<void> {
     await this.faceCustomizer.applySource(this.faceCustomizer.source);

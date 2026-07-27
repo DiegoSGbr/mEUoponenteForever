@@ -88,15 +88,51 @@ if (dataUrl) {
   writeFileSync(join(OUT_DIR, '_composed-face-atlas.png'), Buffer.from(b64, 'base64'));
 }
 
-// Testa os sliders de ajuste fino (recompõe ao vivo).
+// Testa os sliders de ajuste fino (recompõe ao vivo) + preview do menu.
 const adjustVisible = await page.isVisible('#face-adjust:not(.hidden)');
-await page.fill('#face-adjust-du', '10');
+const previewBefore = await page.evaluate(
+  () => document.querySelector('#face-adjust-preview')?.toDataURL() ?? '',
+);
+await page.fill('#face-adjust-du', '15');
 await page.dispatchEvent('#face-adjust-du', 'input');
-await page.waitForTimeout(500);
+await page.waitForTimeout(700);
+const previewAfter = await page.evaluate(
+  () => document.querySelector('#face-adjust-preview')?.toDataURL() ?? '',
+);
 await page.fill('#face-adjust-du', '0');
 await page.dispatchEvent('#face-adjust-du', 'input');
-await page.waitForTimeout(500);
+await page.waitForTimeout(700);
+const previewOk = previewBefore.length > 2000 && previewAfter.length > 2000;
+const previewChanged = previewBefore !== previewAfter;
 console.log('--- sliders ajuste :', adjustVisible ? 'visíveis e funcionais' : 'NÃO VISÍVEIS');
+console.log(
+  '--- preview do menu:',
+  previewOk ? 'desenhado' : 'VAZIO',
+  '|',
+  previewChanged ? 'atualiza com o slider' : 'NÃO MUDOU com o slider',
+);
+// Exporta o preview para inspeção visual.
+if (previewOk) {
+  const b64 = previewAfter.split(',')[1];
+  writeFileSync(join(OUT_DIR, '_menu-preview.png'), Buffer.from(b64, 'base64'));
+}
+
+// Painel de Configurações deve rolar e o botão "Voltar" deve funcionar.
+const scrollInfo = await page.evaluate(() => {
+  const panel = document.querySelector('#menu-settings .panel');
+  return panel
+    ? { scrollable: panel.scrollHeight > panel.clientHeight, clientH: panel.clientHeight }
+    : null;
+});
+await page.click('#menu-settings [data-action="back-settings"]');
+const backWorked = await page.isHidden('#menu-settings');
+console.log(
+  '--- scroll painel  :',
+  scrollInfo?.scrollable ? 'rolável' : 'sem overflow (cabe na tela)',
+  '| Voltar:',
+  backWorked ? 'OK' : 'FALHOU',
+);
+await page.click('[data-action="settings"]'); // reabre para continuar
 
 // Inicia a luta e aproxima o oponente para ver o rosto aplicado no modelo 3D.
 await page.evaluate(() => {
